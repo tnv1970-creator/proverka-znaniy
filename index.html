@@ -407,6 +407,7 @@ function renderSopDetail(sop) {
       '<div class="badge ' + sop.status + '">' + statusLabel(sop.status) + '</div>' +
       '<div class="btn-row">' +
         '<button class="btn" id="openPdfBtn">' + (opened ? 'Открыть СОП повторно (PDF)' : 'Открыть СОП (PDF)') + '</button>' +
+        (sop.presentationUrl ? '<button class="btn secondary" id="openPresentationBtn">Презентация</button>' : '') +
       '</div>' +
       (opened ? '<div id="readTimerBox" style="margin-top:14px"></div>' : '') +
       '<div class="btn-row">' +
@@ -418,6 +419,8 @@ function renderSopDetail(sop) {
   app.innerHTML = body;
   document.getElementById('backHomeBtn').addEventListener('click', renderHome);
   document.getElementById('openPdfBtn').addEventListener('click', function () { openSopPdf(sop); });
+  var presBtn = document.getElementById('openPresentationBtn');
+  if (presBtn) presBtn.addEventListener('click', function () { window.open(sop.presentationUrl, '_blank'); });
   var toTest = document.getElementById('toTestRulesBtn');
   if (toTest) toTest.addEventListener('click', function () { renderTestRules(sop); });
 

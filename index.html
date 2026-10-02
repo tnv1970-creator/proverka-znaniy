@@ -86,8 +86,10 @@
 
   table.matrix { border-collapse: collapse; width: 100%; font-size: 13px; }
   table.matrix th, table.matrix td { border: 1px solid var(--border); padding: 6px 8px; text-align: center; white-space: nowrap; }
-  table.matrix th { background: #eceff1; position: sticky; top: 0; }
+  table.matrix th { background: #eceff1; position: sticky; top: 0; z-index: 1; }
   table.matrix td.name-cell { text-align: left; font-weight: 600; cursor: pointer; background: #fafafa; }
+  table.matrix th:first-child, table.matrix td.name-cell { position: sticky; left: 0; z-index: 2; }
+  table.matrix th:first-child { z-index: 3; background: #eceff1; }
   .cell-state { display: inline-block; width: 100%; padding: 3px 0; border-radius: 4px; color: #fff; font-size: 12px; }
   .cell-state.не_открыт { background: var(--st-gray); color: #37474f; }
   .cell-state.открыт { background: var(--st-yellow); color: #5c4400; }
@@ -124,9 +126,37 @@
   .qbreak-row.bad .qbreak-mark { color: var(--danger); }
   .qbreak-row.ok .qbreak-mark { color: var(--success); }
 
+  .print-header { display: none; }
+
+  .ea-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .ea-sop { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: #fff; }
+  .ea-sop > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ea-sop > summary::-webkit-details-marker { display: none; }
+  .ea-sop > summary:after { content: '\25BE'; color: var(--muted); margin-left: auto; }
+  .ea-sop[open] > summary:after { content: '\25B4'; }
+  .ea-sop-meta { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .ea-questions { border-top: 1px solid var(--border); padding: 8px 12px 10px; }
+  .ea-q { padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .ea-q:last-child { border-bottom: none; }
+  .ea-q-head { font-weight: 600; white-space: pre-wrap; word-break: break-word; }
+  .ea-q-meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .ea-q-stat { font-weight: 700; margin-top: 2px; }
+
   @media (max-width: 480px) {
     main#app { padding: 10px; }
     .card { padding: 12px; }
+  }
+
+  @media print {
+    @page { size: A4 portrait; margin: 14mm 12mm; }
+    body.printing-ea > .topbar, body.printing-ea > .footer { display: none !important; }
+    body.printing-ea main#app { max-width: none; padding: 0; margin: 0; }
+    body.printing-ea main#app > .card { display: none !important; }
+    body.printing-ea main#app > .card#errorAnalysisCard { display: block !important; box-shadow: none; border: none; padding: 0; margin: 0; }
+    body.printing-ea .no-print { display: none !important; }
+    body.printing-ea .print-header { display: block !important; margin-bottom: 12px; }
+    body.printing-ea .ea-sop { break-inside: avoid; border-color: #999; }
+    body.printing-ea .ea-sop > summary:after { content: ''; }
   }
 </style>
 </head>
@@ -165,7 +195,8 @@ var state = {
   sops: [],
   currentSop: null,
   test: null,
-  dashboard: null
+  dashboard: null,
+  errorAnalysis: null
 };
 
 var app = document.getElementById('app');
@@ -715,9 +746,6 @@ function renderDashboardBody() {
   var branchOptions = '<option value="">Все филиалы</option>' + d.branches.map(function (b) {
     return '<option value="' + esc(b.id) + '">' + esc(b.name) + '</option>';
   }).join('');
-  var deptOptions = '<option value="">Все подразделения</option>' + d.departments.map(function (dep) {
-    return '<option value="' + esc(dep.id) + '">' + esc(dep.name) + '</option>';
-  }).join('');
   var sopOptions = '<option value="">Все СОПы</option>' + d.sops.map(function (s) {
     return '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>';
   }).join('');
@@ -731,58 +759,140 @@ function renderDashboardBody() {
     '<div class="card">' +
       '<div class="filters">' +
         '<div><label>Филиал</label><select id="fBranch">' + branchOptions + '</select></div>' +
-        '<div><label>Подразделение</label><select id="fDept">' + deptOptions + '</select></div>' +
+        '<div><label>Подразделение</label><select id="fDept">' + buildDeptOptionsHtml('') + '</select></div>' +
         '<div><label>СОП</label><select id="fSop">' + sopOptions + '</select></div>' +
         '<div><label>Статус</label><select id="fStatus">' + statusOptions + '</select></div>' +
       '</div>' +
       '<div class="table-scroll"><table class="matrix" id="matrixTable"></table></div>' +
     '</div>' +
-    '<div class="card">' +
+    '<div class="card" id="errorAnalysisCard">' +
+      '<div class="print-header" id="eaPrintHeader"></div>' +
       '<h2>Анализ ошибок</h2>' +
-      '<p class="hint">Вопросы, на которых чаще всего ошибаются, — по убыванию % ошибок.</p>' +
-      '<div class="filters">' +
+      '<p class="hint no-print">Свод по СОПам и вопросам с ошибками — по убыванию % ошибок.</p>' +
+      '<div class="filters no-print">' +
         '<div><label>Филиал</label><select id="eaBranch">' + branchOptions + '</select></div>' +
-        '<div><label>Подразделение</label><select id="eaDept">' + deptOptions + '</select></div>' +
+        '<div><label>Подразделение</label><select id="eaDept">' + buildDeptOptionsHtml('') + '</select></div>' +
         '<div><label>СОП</label><select id="eaSop">' + sopOptions + '</select></div>' +
       '</div>' +
-      '<div class="table-scroll"><table class="matrix" id="errorTable"></table></div>' +
+      '<div class="btn-row no-print"><button class="btn secondary" id="eaPrintBtn">Печать / PDF</button></div>' +
+      '<div id="eaSummary" class="ea-summary"></div>' +
+      '<div id="eaSopList"></div>' +
     '</div>';
 
-  ['fBranch','fDept','fSop','fStatus'].forEach(function (id) {
+  document.getElementById('fBranch').addEventListener('change', function () {
+    document.getElementById('fDept').innerHTML = buildDeptOptionsHtml(document.getElementById('fBranch').value);
+    renderMatrixTable();
+  });
+  ['fDept','fSop','fStatus'].forEach(function (id) {
     document.getElementById(id).addEventListener('change', renderMatrixTable);
   });
   renderMatrixTable();
 
-  ['eaBranch','eaDept','eaSop'].forEach(function (id) {
+  document.getElementById('eaBranch').addEventListener('change', function () {
+    document.getElementById('eaDept').innerHTML = buildDeptOptionsHtml(document.getElementById('eaBranch').value);
+    loadErrorAnalysis();
+  });
+  ['eaDept','eaSop'].forEach(function (id) {
     document.getElementById(id).addEventListener('change', loadErrorAnalysis);
   });
+  document.getElementById('eaPrintBtn').addEventListener('click', printErrorAnalysis);
   loadErrorAnalysis();
+}
+
+/** Подразделения выбранного филиала (без дублей); при «Все филиалы» — с префиксом названия филиала. */
+function buildDeptOptionsHtml(branchId) {
+  var d = state.dashboard;
+  var branchNameById = {};
+  d.branches.forEach(function (b) { branchNameById[String(b.id)] = b.name; });
+
+  var seen = {};
+  var list = d.departments.filter(function (dep) {
+    if (branchId && String(dep.branchId) !== String(branchId)) return false;
+    var key = String(dep.id);
+    if (seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+
+  var options = list.map(function (dep) {
+    var label = branchId ? dep.name : (branchNameById[String(dep.branchId)] || '—') + ' — ' + dep.name;
+    return '<option value="' + esc(dep.id) + '">' + esc(label) + '</option>';
+  }).join('');
+  return '<option value="">Все подразделения</option>' + options;
 }
 
 function loadErrorAnalysis() {
   var branchId = document.getElementById('eaBranch').value;
   var deptId = document.getElementById('eaDept').value;
   var sopId = document.getElementById('eaSop').value;
-  var table = document.getElementById('errorTable');
-  table.innerHTML = '<tr><td>Загрузка…</td></tr>';
+  var summaryBox = document.getElementById('eaSummary');
+  var listBox = document.getElementById('eaSopList');
+  summaryBox.innerHTML = '';
+  listBox.innerHTML = '<p class="hint">Загрузка…</p>';
+
   api('errorAnalysis', { branchId: branchId || undefined, departmentId: deptId || undefined, sopId: sopId || undefined }).then(function (data) {
-    if (!data.questions.length) { table.innerHTML = '<tr><td>Нет данных по выбранным фильтрам</td></tr>'; return; }
-    var head = '<tr><th>СОП</th><th>Пункт СОП</th><th style="text-align:left">Вопрос</th><th>Ответов</th><th>Ошибок</th><th>% ошибок</th></tr>';
-    var body = data.questions.map(function (q) {
-      return '<tr>' +
-        '<td>' + esc(q.sopName) + '</td>' +
-        '<td>' + esc(q.punkt || '—') + '</td>' +
-        '<td style="text-align:left; white-space:normal; max-width:360px;">' + esc(q.text) + '</td>' +
-        '<td>' + q.total + '</td>' +
-        '<td>' + q.wrong + '</td>' +
-        '<td><b>' + q.wrongPercent + '%</b></td>' +
-      '</tr>';
-    }).join('');
-    table.innerHTML = head + body;
+    state.errorAnalysis = data;
+    renderErrorAnalysisBody();
   }).catch(function (e) {
-    table.innerHTML = '<tr><td>' + esc(e.message) + '</td></tr>';
+    summaryBox.innerHTML = '';
+    listBox.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
   });
 }
+
+function renderErrorAnalysisBody() {
+  var data = state.errorAnalysis;
+  var summaryBox = document.getElementById('eaSummary');
+  var listBox = document.getElementById('eaSopList');
+
+  summaryBox.innerHTML =
+    '<div class="summary-item"><div>Сотрудников прошли тесты</div><div class="n">' + data.summary.employeesPassed + '</div></div>' +
+    '<div class="summary-item"><div>Попыток</div><div class="n">' + data.summary.attemptsCount + '</div></div>' +
+    '<div class="summary-item"><div>Средний балл</div><div class="n">' + data.summary.avgScore + '%</div></div>';
+
+  if (!data.sops.length) {
+    listBox.innerHTML = '<p class="hint">Ошибок по выбранным фильтрам не найдено.</p>';
+    return;
+  }
+
+  listBox.innerHTML = data.sops.map(function (sop) {
+    var qHtml = sop.questions.map(function (q) {
+      return '<div class="ea-q">' +
+        '<div class="ea-q-head">' + (q.number != null ? q.number + '. ' : '') + esc(q.text) + '</div>' +
+        (q.punkt ? '<div class="ea-q-meta">Пункт СОП: ' + esc(q.punkt) + '</div>' : '') +
+        '<div class="ea-q-stat">Ошиблись ' + q.wrong + ' из ' + q.total + ' (' + q.wrongPercent + '%)</div>' +
+      '</div>';
+    }).join('');
+    return '<details class="ea-sop">' +
+      '<summary><span>' + esc(sop.code || sop.name) + ' — ' + esc(sop.name) + '</span>' +
+        '<span class="ea-sop-meta">прошли: ' + sop.passedCount + ' · ошиблись: ' + sop.erredCount + ' из ' + sop.totalPeople + ' · ' + sop.errorPercent + '% ошибок</span>' +
+      '</summary>' +
+      '<div class="ea-questions">' + (qHtml || '<p class="hint">Нет вопросов с ошибками.</p>') + '</div>' +
+    '</details>';
+  }).join('');
+}
+
+function updateEaPrintHeader() {
+  var branchSel = document.getElementById('eaBranch');
+  var deptSel = document.getElementById('eaDept');
+  var branchText = branchSel.selectedOptions[0] ? branchSel.selectedOptions[0].textContent : 'Все филиалы';
+  var deptText = deptSel.selectedOptions[0] ? deptSel.selectedOptions[0].textContent : 'Все подразделения';
+  var dateText = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  document.getElementById('eaPrintHeader').innerHTML =
+    '<h1 style="margin:0 0 4px">Анализ ошибок</h1>' +
+    '<p style="margin:0">Филиал: ' + esc(branchText) + ' · Подразделение: ' + esc(deptText) + '</p>' +
+    '<p style="margin:0">Дата формирования: ' + esc(dateText) + '</p>';
+}
+
+function printErrorAnalysis() {
+  document.querySelectorAll('#eaSopList details').forEach(function (det) { det.open = true; });
+  updateEaPrintHeader();
+  document.body.classList.add('printing-ea');
+  window.print();
+}
+
+window.addEventListener('afterprint', function () {
+  document.body.classList.remove('printing-ea');
+});
 
 function renderMatrixTable() {
   var d = state.dashboard;
@@ -802,7 +912,7 @@ function renderMatrixTable() {
     return true;
   });
 
-  var thead = '<tr><th>ФИО</th>' + sops.map(function (s) { return '<th>' + esc(s.code || s.name) + '</th>'; }).join('') + '</tr>';
+  var thead = '<tr><th>ФИО</th>' + sops.map(function (s) { return '<th title="' + esc(s.name) + '">' + esc(s.code || s.name) + '</th>'; }).join('') + '</tr>';
   var tbody = rows.map(function (row) {
     var cells = sops.map(function (s) {
       var c = row.cells.filter(function (c) { return String(c.sopId) === String(s.id); })[0];

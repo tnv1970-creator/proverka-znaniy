@@ -80,14 +80,26 @@
 
   .qcard { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
   .qcard .qtext { font-weight: 600; margin-bottom: 8px; }
-  .qopt { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; cursor: pointer; }
+  .qopt { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; cursor: pointer; border-radius: 6px; }
   .qopt input { margin-top: 3px; }
   .qnum { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .qopt.opt-correct { background: #e8f5e9; }
+  .qopt.opt-wrong { background: #fdecea; }
+  .qfeedback { font-weight: 700; margin-top: 8px; }
+  .qfeedback.ok { color: var(--success); }
+  .qfeedback.bad { color: var(--danger); }
+  .qpunkt { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .modal-box { background: #fff; border-radius: var(--radius); max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 18px; }
+  .modal-box h2 { margin-top: 0; }
 
   table.matrix { border-collapse: collapse; width: 100%; font-size: 13px; }
   table.matrix th, table.matrix td { border: 1px solid var(--border); padding: 6px 8px; text-align: center; white-space: nowrap; }
   table.matrix th { background: #eceff1; position: sticky; top: 0; z-index: 1; }
   table.matrix td.name-cell { text-align: left; font-weight: 600; cursor: pointer; background: #fafafa; }
+  table.matrix td.cell-clickable { cursor: pointer; }
+  table.matrix td.cell-clickable:hover .cell-state { outline: 2px solid var(--primary); outline-offset: -2px; }
   table.matrix th:first-child, table.matrix td.name-cell { position: sticky; left: 0; z-index: 2; }
   table.matrix th:first-child { z-index: 3; background: #eceff1; }
   .cell-state { display: inline-block; width: 100%; padding: 3px 0; border-radius: 4px; color: #fff; font-size: 12px; }
@@ -112,7 +124,9 @@
   .score-big { font-size: 42px; font-weight: 700; text-align: center; margin: 10px 0; }
   .score-big.pass { color: var(--success); }
   .score-big.fail { color: var(--danger); }
-  .result-status { text-align: center; font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .result-status { text-align: center; font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .result-status.pass { color: var(--success); }
+  .result-status.fail { color: var(--danger); }
 
   .attempt-block { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 8px 0; background: #fff; }
   .attempt-head { margin-bottom: 8px; }
@@ -229,6 +243,34 @@ function fmtDate(iso) {
   var d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function openModal(html) {
+  closeModal();
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modalOverlay';
+  overlay.innerHTML = '<div class="modal-box">' + html + '</div>';
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+  document.body.appendChild(overlay);
+}
+
+function closeModal() {
+  var existing = document.getElementById('modalOverlay');
+  if (existing) existing.remove();
+}
+
+/** Список вопросов с ошибками для медсестры: текст, её ответ (красным), пункт СОП. Без правильного ответа. */
+function mistakesListHtml(mistakes) {
+  if (!mistakes || !mistakes.length) return '<p class="hint">Ошибок нет.</p>';
+  return mistakes.map(function (m) {
+    return '<div class="sop-item" style="flex-direction:column; align-items:stretch;">' +
+      '<div class="sop-name">' + esc(m.text) + '</div>' +
+      '<div class="qbreak-ans">Ваш ответ: <span style="color:var(--danger); font-weight:600">' +
+        esc((m.selectedTexts || []).join('; ') || '—') + '</span></div>' +
+      (m.punkt ? '<div class="sop-meta">Пункт СОП: ' + esc(m.punkt) + '</div>' : '') +
+    '</div>';
+  }).join('');
 }
 
 function statusLabel(status) {
@@ -382,6 +424,10 @@ function renderHome() {
     state.sops = data.sops;
     var rows = state.sops.map(function (s) {
       var actionBtn = sopActionButton(s);
+      var myErrorsBtn = (s.status === 'сдан')
+        ? '<button class="btn secondary" style="margin-top:6px" data-my-errors="' + esc(s.id) + '">Мои ошибки' +
+          (s.lastMistakes && s.lastMistakes.length ? ' (' + s.lastMistakes.length + ')' : '') + '</button>'
+        : '';
       return '<div class="sop-item">' +
         '<div>' +
           '<div class="sop-name">' + esc(s.name) + '</div>' +
@@ -390,6 +436,7 @@ function renderHome() {
         '<div style="text-align:right">' +
           '<div class="badge ' + s.status + '">' + statusLabel(s.status) + '</div><br>' +
           '<button class="btn secondary" style="margin-top:6px" data-open-sop="' + esc(s.id) + '">' + actionBtn + '</button>' +
+          myErrorsBtn +
         '</div>' +
       '</div>';
     }).join('') || '<p class="hint">Нет назначенных СОПов.</p>';
@@ -406,6 +453,13 @@ function renderHome() {
         else { renderSopDetail(sop); }
       });
     });
+    app.querySelectorAll('[data-my-errors]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var sop = state.sops.filter(function (s) { return String(s.id) === btn.getAttribute('data-my-errors'); })[0];
+        renderMyErrors(sop);
+      });
+    });
     document.getElementById('toResultsBtn').addEventListener('click', renderMyResults);
   }).catch(function (e) {
     app.innerHTML = '<div class="card"><div class="error">' + esc(e.message) + '</div></div>';
@@ -418,7 +472,26 @@ function sopActionButton(s) {
   if (s.ongoingAttemptId) return 'Продолжить тест';
   if (s.status === 'ознакомлен') return 'К тесту';
   if (s.status === 'нужно_повторное_ознакомление') return 'Ознакомиться заново';
+  if (s.status === 'сдан' && s.attemptsUsed < s.maxAttempts) return 'Пересдать';
   return 'Подробнее';
+}
+
+// ---------------------------------------------------------------------------
+// Мои ошибки (разбор последней попытки по пройденному СОПу)
+// ---------------------------------------------------------------------------
+function renderMyErrors(sop) {
+  var mistakes = sop.lastMistakes || [];
+  app.innerHTML =
+    '<div class="card">' +
+      '<h1>Мои ошибки — ' + esc(sop.name) + '</h1>' +
+      '<p class="hint">Последняя попытка' + (sop.lastAttemptDate ? ' · ' + fmtDate(sop.lastAttemptDate) : '') +
+        ' · Балл: ' + esc(sop.lastScore) + '%</p>' +
+      (mistakes.length
+        ? '<h2 style="margin-top:16px">Вопросы, в которых вы ошиблись (' + mistakes.length + ')</h2>' + mistakesListHtml(mistakes)
+        : '<p class="hint">В последней попытке ошибок не было.</p>') +
+      '<button class="btn secondary block" id="backHomeBtn4">Назад к списку СОПов</button>' +
+    '</div>';
+  document.getElementById('backHomeBtn4').addEventListener('click', renderHome);
 }
 
 // ---------------------------------------------------------------------------
@@ -429,12 +502,20 @@ var readTimerHandle = null;
 function renderSopDetail(sop) {
   clearInterval(readTimerHandle);
   var opened = sop.opened;
-  var ackDisabledInfo = '';
+  var remainingAttempts = Math.max(0, sop.maxAttempts - sop.attemptsUsed);
+  var testBtnLabel = sop.status === 'сдан' ? 'Пересдать тест' : 'Пройти тест';
+  var testBtnHtml = '';
+  if (sop.acknowledged) {
+    testBtnHtml = remainingAttempts > 0
+      ? '<button class="btn" id="toTestRulesBtn">' + testBtnLabel + '</button>'
+      : '<span class="hint">Попытки исчерпаны</span>';
+  }
 
   var body =
     '<div class="card">' +
       '<h1>' + esc(sop.name) + '</h1>' +
-      '<p class="hint">Версия ' + esc(sop.version) + '</p>' +
+      '<p class="hint">Версия ' + esc(sop.version) +
+        (sop.attemptsUsed > 0 ? ' · Попыток использовано: ' + sop.attemptsUsed + ' из ' + sop.maxAttempts : '') + '</p>' +
       '<div class="badge ' + sop.status + '">' + statusLabel(sop.status) + '</div>' +
       '<div class="btn-row">' +
         '<button class="btn" id="openPdfBtn">' + (opened ? 'Открыть СОП повторно (PDF)' : 'Открыть СОП (PDF)') + '</button>' +
@@ -443,7 +524,7 @@ function renderSopDetail(sop) {
       (opened ? '<div id="readTimerBox" style="margin-top:14px"></div>' : '') +
       '<div class="btn-row">' +
         '<button class="btn secondary" id="backHomeBtn">Назад к списку</button>' +
-        (sop.acknowledged ? '<button class="btn" id="toTestRulesBtn">Пройти тест</button>' : '') +
+        testBtnHtml +
       '</div>' +
     '</div>';
 
@@ -552,23 +633,46 @@ function beginOrResumeTest(sop) {
 
 var testTimerHandle = null;
 
+/**
+ * Карточка одного вопроса. Для уже зафиксированного (проверенного) вопроса —
+ * подсветка выбранного варианта зелёным/красным и пункт СОП при ошибке,
+ * все поля ввода отключены (ответ менять нельзя). Правильный вариант при
+ * ошибке не показывается — он сюда и не передаётся сервером.
+ */
+function questionCardHtml(q, idx, total) {
+  var inputType = q.type === 'несколько' ? 'checkbox' : 'radio';
+  var locked = !!q.locked;
+  var opts = q.options.map(function (opt, oi) {
+    var pos = oi + 1;
+    var isSelected = q.selected.indexOf(pos) !== -1;
+    var checked = isSelected ? 'checked' : '';
+    var cls = '';
+    if (locked && isSelected) cls = q.correct ? 'opt-correct' : 'opt-wrong';
+    return '<label class="qopt ' + cls + '">' +
+      '<input type="' + inputType + '" name="q_' + idx + '" value="' + pos + '" data-qidx="' + idx + '" ' + checked + (locked ? ' disabled' : '') + '>' +
+      '<span>' + esc(opt) + '</span></label>';
+  }).join('');
+
+  var feedback = '';
+  if (locked) {
+    feedback = '<div class="qfeedback ' + (q.correct ? 'ok' : 'bad') + '">' + (q.correct ? 'Верно' : 'Неверно') + '</div>' +
+      (!q.correct && q.punkt ? '<div class="qpunkt">Повторите пункт СОП: ' + esc(q.punkt) + '</div>' : '');
+  }
+
+  var answerBtn = (q.type === 'несколько' && !locked)
+    ? '<div class="btn-row"><button class="btn secondary" data-answer-idx="' + idx + '"' + (q.selected.length ? '' : ' disabled') + '>Ответить</button></div>'
+    : '';
+
+  return '<div class="qcard" id="qcard_' + idx + '">' +
+    '<div class="qnum">Вопрос ' + (idx + 1) + ' из ' + total + (q.type === 'несколько' ? ' · можно выбрать несколько, затем нажмите «Ответить»' : '') + '</div>' +
+    '<div class="qtext">' + esc(q.text) + '</div>' +
+    opts + feedback + answerBtn +
+  '</div>';
+}
+
 function renderTest() {
   var t = state.test;
-  var qHtml = t.questions.map(function (q, idx) {
-    var inputType = q.type === 'несколько' ? 'checkbox' : 'radio';
-    var opts = q.options.map(function (opt, oi) {
-      var pos = oi + 1;
-      var checked = q.selected.indexOf(pos) !== -1 ? 'checked' : '';
-      return '<label class="qopt">' +
-        '<input type="' + inputType + '" name="q_' + idx + '" value="' + pos + '" data-qidx="' + idx + '" ' + checked + '>' +
-        '<span>' + esc(opt) + '</span></label>';
-    }).join('');
-    return '<div class="qcard">' +
-      '<div class="qnum">Вопрос ' + (idx + 1) + ' из ' + t.questions.length + (q.type === 'несколько' ? ' · можно выбрать несколько' : '') + '</div>' +
-      '<div class="qtext">' + esc(q.text) + '</div>' +
-      opts +
-    '</div>';
-  }).join('');
+  var qHtml = t.questions.map(function (q, idx) { return questionCardHtml(q, idx, t.questions.length); }).join('');
 
   app.innerHTML =
     '<div class="card" style="position:sticky; top:0; z-index:5;">' +
@@ -580,9 +684,7 @@ function renderTest() {
       '<button class="btn block" id="submitTestBtn">Отправить тест</button>' +
     '</div>';
 
-  app.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(function (input) {
-    input.addEventListener('change', onAnswerChange);
-  });
+  attachQuestionListeners();
   document.getElementById('submitTestBtn').addEventListener('click', onSubmitTestClick);
 
   clearInterval(testTimerHandle);
@@ -590,6 +692,74 @@ function renderTest() {
   updateTestTimer();
 
   document.addEventListener('visibilitychange', onVisibilityChange);
+}
+
+function attachQuestionListeners() {
+  var t = state.test;
+  t.questions.forEach(function (q, idx) {
+    if (q.locked) return;
+    var card = document.getElementById('qcard_' + idx);
+    if (!card) return;
+    card.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(function (input) {
+      input.addEventListener('change', function () { onOptionChange(idx); });
+    });
+    var answerBtn = card.querySelector('[data-answer-idx]');
+    if (answerBtn) answerBtn.addEventListener('click', function () { onAnswerButtonClick(idx); });
+  });
+}
+
+/**
+ * Для «один»: выбор варианта сразу фиксирует и проверяет ответ.
+ * Для «несколько»: только запоминает выбор (и подстраховочно сохраняет его
+ * черновиком на сервер) — проверка происходит по кнопке «Ответить».
+ */
+function onOptionChange(idx) {
+  var t = state.test;
+  var q = t.questions[idx];
+  var checked = Array.prototype.slice.call(document.querySelectorAll('input[name="q_' + idx + '"]:checked'))
+    .map(function (i) { return Number(i.value); });
+  q.selected = checked;
+
+  if (q.type === 'несколько') {
+    var answerBtn = document.querySelector('#qcard_' + idx + ' [data-answer-idx]');
+    if (answerBtn) answerBtn.disabled = checked.length === 0;
+    clearTimeout(t.saveTimers[idx]);
+    t.saveTimers[idx] = setTimeout(function () {
+      api('saveAnswer', { attemptId: t.attemptId, questionId: q.questionId, selected: checked }).catch(function (err) { console.error(err); });
+    }, 1500);
+    return;
+  }
+
+  submitCheckAnswer(idx, checked);
+}
+
+function onAnswerButtonClick(idx) {
+  var q = state.test.questions[idx];
+  submitCheckAnswer(idx, q.selected || []);
+}
+
+function submitCheckAnswer(idx, selected) {
+  var t = state.test;
+  var q = t.questions[idx];
+  clearTimeout(t.saveTimers[idx]);
+  var card = document.getElementById('qcard_' + idx);
+  if (card) card.querySelectorAll('input, button').forEach(function (el) { el.disabled = true; });
+
+  api('checkAnswer', { attemptId: t.attemptId, questionId: q.questionId, selected: selected }).then(function (data) {
+    q.locked = true;
+    q.correct = data.correct;
+    q.punkt = data.punkt;
+    q.selected = selected;
+    var old = document.getElementById('qcard_' + idx);
+    if (old) {
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = questionCardHtml(q, idx, t.questions.length);
+      old.replaceWith(wrapper.firstElementChild);
+    }
+  }).catch(function (e) {
+    alert(e.message);
+    if (card) card.querySelectorAll('input, button').forEach(function (el) { el.disabled = false; });
+  });
 }
 
 function onVisibilityChange() {
@@ -616,21 +786,6 @@ function updateTestTimer() {
   el.classList.toggle('low', totalSec < 60);
 }
 
-function onAnswerChange(e) {
-  var idx = Number(e.target.getAttribute('data-qidx'));
-  var q = state.test.questions[idx];
-  var checked = Array.prototype.slice.call(app.querySelectorAll('input[name="q_' + idx + '"]:checked'))
-    .map(function (i) { return Number(i.value); });
-  q.selected = checked;
-
-  clearTimeout(state.test.saveTimers[idx]);
-  state.test.saveTimers[idx] = setTimeout(function () {
-    api('saveAnswer', { attemptId: state.test.attemptId, questionId: q.questionId, selected: checked }).catch(function (err) {
-      console.error(err);
-    });
-  }, 2000);
-}
-
 function onSubmitTestClick() {
   var unanswered = state.test.questions.filter(function (q) { return !q.selected || q.selected.length === 0; }).length;
   if (unanswered > 0) {
@@ -647,7 +802,7 @@ function finishTest(auto) {
 
   Object.keys(state.test.saveTimers).forEach(function (k) { clearTimeout(state.test.saveTimers[k]); });
 
-  var pending = state.test.questions.map(function (q) {
+  var pending = state.test.questions.filter(function (q) { return !q.locked; }).map(function (q) {
     return api('saveAnswer', { attemptId: attemptId, questionId: q.questionId, selected: q.selected || [] }).catch(function () {});
   });
 
@@ -668,22 +823,16 @@ function renderResult(result, auto) {
   var mistakesHtml = '';
   if (result.mistakes && result.mistakes.length) {
     mistakesHtml =
-      '<h2 style="margin-top:16px">Вопросы с ошибками — стоит повторить</h2>' +
-      result.mistakes.map(function (m) {
-        return '<div class="sop-item"><div>' +
-          '<div class="sop-name">' + esc(m.text) + '</div>' +
-          (m.punkt ? '<div class="sop-meta">Пункт СОП: ' + esc(m.punkt) + '</div>' : '') +
-        '</div></div>';
-      }).join('');
+      '<h2 style="margin-top:16px">Вопросы, в которых вы ошиблись (' + result.mistakes.length + ')</h2>' +
+      mistakesListHtml(result.mistakes);
   }
   app.innerHTML =
     '<div class="card">' +
       (auto ? '<p class="hint">Тест отправлен автоматически по истечении времени.</p>' : '') +
-      '<div class="result-status">' + (pass ? 'Тест сдан' : 'Тест не сдан') + '</div>' +
+      '<div class="result-status ' + (pass ? 'pass' : 'fail') + '">' + (pass ? 'Сдан' : 'Не сдан') + '</div>' +
       '<div class="score-big ' + (pass ? 'pass' : 'fail') + '">' + result.score + '%</div>' +
-      '<p style="text-align:center">Ошибок: ' + result.errors + ' из ' + result.total + '</p>' +
       mistakesHtml +
-      '<button class="btn block" id="toHomeBtn">К списку СОПов</button>' +
+      '<button class="btn block" id="toHomeBtn">Вернуться к списку СОПов</button>' +
     '</div>';
   document.getElementById('toHomeBtn').addEventListener('click', renderHome);
 }
@@ -695,12 +844,9 @@ function renderMyResults() {
   app.innerHTML = '<div class="card"><h1>Мои результаты</h1><p class="hint">Загрузка…</p></div>';
   api('myResults').then(function (data) {
     var rows = data.attempts.map(function (a) {
-      var mistakesHtml = '';
-      if (a.mistakes && a.mistakes.length) {
-        mistakesHtml = '<div class="hint" style="margin-top:6px; padding-left:2px;">Ошибки для повторения: ' +
-          a.mistakes.map(function (m) { return esc(m.text) + (m.punkt ? ' (' + esc(m.punkt) + ')' : ''); }).join('; ') +
-        '</div>';
-      }
+      var mistakesHtml = (a.mistakes && a.mistakes.length)
+        ? '<div style="margin-top:8px"><div class="hint" style="margin-bottom:4px">Ошибки (' + a.mistakes.length + '):</div>' + mistakesListHtml(a.mistakes) + '</div>'
+        : '<div class="hint" style="margin-top:6px">Ошибок нет.</div>';
       return '<div class="sop-item" style="flex-direction:column; align-items:stretch;">' +
         '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">' +
           '<div><div class="sop-name">' + esc(a.sopName) + '</div>' +
@@ -773,6 +919,7 @@ function renderDashboardBody() {
         '<div><label>Филиал</label><select id="eaBranch">' + branchOptions + '</select></div>' +
         '<div><label>Подразделение</label><select id="eaDept">' + buildDeptOptionsHtml('') + '</select></div>' +
         '<div><label>СОП</label><select id="eaSop">' + sopOptions + '</select></div>' +
+        '<div><label>Сотрудник</label><select id="eaEmployee">' + buildEmployeeOptionsHtml('', '') + '</select></div>' +
       '</div>' +
       '<div class="btn-row no-print"><button class="btn secondary" id="eaPrintBtn">Печать / PDF</button></div>' +
       '<div id="eaSummary" class="ea-summary"></div>' +
@@ -790,9 +937,14 @@ function renderDashboardBody() {
 
   document.getElementById('eaBranch').addEventListener('change', function () {
     document.getElementById('eaDept').innerHTML = buildDeptOptionsHtml(document.getElementById('eaBranch').value);
+    document.getElementById('eaEmployee').innerHTML = buildEmployeeOptionsHtml(document.getElementById('eaBranch').value, '');
     loadErrorAnalysis();
   });
-  ['eaDept','eaSop'].forEach(function (id) {
+  document.getElementById('eaDept').addEventListener('change', function () {
+    document.getElementById('eaEmployee').innerHTML = buildEmployeeOptionsHtml(document.getElementById('eaBranch').value, document.getElementById('eaDept').value);
+    loadErrorAnalysis();
+  });
+  ['eaSop','eaEmployee'].forEach(function (id) {
     document.getElementById(id).addEventListener('change', loadErrorAnalysis);
   });
   document.getElementById('eaPrintBtn').addEventListener('click', printErrorAnalysis);
@@ -821,16 +973,33 @@ function buildDeptOptionsHtml(branchId) {
   return '<option value="">Все подразделения</option>' + options;
 }
 
+/** Сотрудники (медсёстры) выбранного филиала/подразделения, для фильтра «Сотрудник» в Анализе ошибок. */
+function buildEmployeeOptionsHtml(branchId, deptId) {
+  var d = state.dashboard;
+  var list = d.matrix.filter(function (r) {
+    if (branchId && String(r.branchId) !== String(branchId)) return false;
+    if (deptId && String(r.departmentId) !== String(deptId)) return false;
+    return true;
+  }).slice().sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ru'); });
+  return '<option value="">Все сотрудники</option>' + list.map(function (r) {
+    return '<option value="' + esc(r.employeeId) + '">' + esc(r.name) + '</option>';
+  }).join('');
+}
+
 function loadErrorAnalysis() {
   var branchId = document.getElementById('eaBranch').value;
   var deptId = document.getElementById('eaDept').value;
   var sopId = document.getElementById('eaSop').value;
+  var employeeId = document.getElementById('eaEmployee').value;
   var summaryBox = document.getElementById('eaSummary');
   var listBox = document.getElementById('eaSopList');
   summaryBox.innerHTML = '';
   listBox.innerHTML = '<p class="hint">Загрузка…</p>';
 
-  api('errorAnalysis', { branchId: branchId || undefined, departmentId: deptId || undefined, sopId: sopId || undefined }).then(function (data) {
+  api('errorAnalysis', {
+    branchId: branchId || undefined, departmentId: deptId || undefined,
+    sopId: sopId || undefined, employeeId: employeeId || undefined
+  }).then(function (data) {
     state.errorAnalysis = data;
     renderErrorAnalysisBody();
   }).catch(function (e) {
@@ -854,12 +1023,31 @@ function renderErrorAnalysisBody() {
     return;
   }
 
+  if (data.employeeId) {
+    listBox.innerHTML = data.sops.map(function (sop) {
+      var mHtml = sop.mistakes.map(function (m) {
+        return '<div class="ea-q">' +
+          '<div class="ea-q-head">' + esc(m.text) + '</div>' +
+          (m.punkt ? '<div class="ea-q-meta">Пункт СОП: ' + esc(m.punkt) + '</div>' : '') +
+          '<div class="ea-q-meta">Попытка от ' + fmtDate(m.date) + ' · балл ' + esc(m.score) + '%</div>' +
+        '</div>';
+      }).join('');
+      return '<details class="ea-sop" open>' +
+        '<summary><span>' + esc(sop.code || sop.name) + ' — ' + esc(sop.name) + '</span>' +
+          '<span class="ea-sop-meta">ошибок: ' + sop.mistakes.length + '</span>' +
+        '</summary>' +
+        '<div class="ea-questions">' + mHtml + '</div>' +
+      '</details>';
+    }).join('');
+    return;
+  }
+
   listBox.innerHTML = data.sops.map(function (sop) {
     var qHtml = sop.questions.map(function (q) {
       return '<div class="ea-q">' +
         '<div class="ea-q-head">' + (q.number != null ? q.number + '. ' : '') + esc(q.text) + '</div>' +
         (q.punkt ? '<div class="ea-q-meta">Пункт СОП: ' + esc(q.punkt) + '</div>' : '') +
-        '<div class="ea-q-stat">Ошиблись ' + q.wrong + ' из ' + q.total + ' (' + q.wrongPercent + '%)</div>' +
+        '<div class="ea-q-stat">Ошибок в ' + q.wrong + ' из ' + q.total + ' попыток, где встречался вопрос (' + q.wrongPercent + '%)</div>' +
       '</div>';
     }).join('');
     return '<details class="ea-sop">' +
@@ -918,7 +1106,8 @@ function renderMatrixTable() {
       var c = row.cells.filter(function (c) { return String(c.sopId) === String(s.id); })[0];
       if (!c) return '<td>—</td>';
       var label = statusLabel(c.state) + (c.score != null ? ' (' + c.score + '%)' : '');
-      return '<td><span class="cell-state ' + c.state + '">' + esc(label) + '</span></td>';
+      return '<td class="cell-clickable" data-emp="' + esc(row.employeeId) + '" data-sop="' + esc(s.id) + '" title="Открыть разбор попыток">' +
+        '<span class="cell-state ' + c.state + '">' + esc(label) + '</span></td>';
     }).join('');
     return '<tr>' +
       '<td class="name-cell" data-emp="' + esc(row.employeeId) + '">' + esc(row.name) + '</td>' +
@@ -931,6 +1120,15 @@ function renderMatrixTable() {
 
   table.querySelectorAll('.name-cell').forEach(function (td) {
     td.addEventListener('click', function () { toggleEmployeeDetail(td.getAttribute('data-emp'), sops); });
+  });
+  table.querySelectorAll('.cell-clickable').forEach(function (td) {
+    td.addEventListener('click', function () {
+      var empId = td.getAttribute('data-emp');
+      var sopId2 = td.getAttribute('data-sop');
+      var row = d.matrix.filter(function (r) { return String(r.employeeId) === String(empId); })[0];
+      var sop = sops.filter(function (s) { return String(s.id) === String(sopId2); })[0];
+      if (row && sop) openEmployeeSopModal(empId, row.name, sopId2, sop.name);
+    });
   });
 }
 
@@ -961,10 +1159,7 @@ function toggleEmployeeDetail(employeeId, sops) {
   td.innerHTML = lines +
     '<div class="emp-detail-row"><span>Сброс PIN для ' + esc(row.name) + '</span>' +
     '<button class="btn secondary" data-reset-pin data-emp="' + esc(employeeId) + '">Сбросить PIN</button></div>' +
-    '<div style="padding:10px">' +
-      '<h2 style="margin-bottom:8px">Разбор попыток</h2>' +
-      '<div id="empAttempts_' + esc(employeeId) + '" class="hint">Загрузка разбора попыток…</div>' +
-    '</div>';
+    '<div class="hint" style="padding:10px">Разбор попыток по конкретному СОП — клик на ячейку этого сотрудника в матрице выше.</div>';
   detailRow.appendChild(td);
 
   var clickedCell = document.querySelector('.name-cell[data-emp="' + employeeId + '"]');
@@ -989,35 +1184,52 @@ function toggleEmployeeDetail(employeeId, sops) {
     });
   });
 
-  api('employeeAttempts', { employeeId: employeeId }).then(function (data) {
-    renderEmployeeAttemptsBreakdown(employeeId, data.attempts);
+}
+
+/**
+ * Окно (модалка) по клику на ячейку «Сотрудник × СОП»: все попытки сотрудника
+ * по этому СОП (дата, балл, статус) и для каждой — только вопросы с ошибкой
+ * (текст, ответ сотрудника, правильный ответ, пункт СОП).
+ */
+function openEmployeeSopModal(employeeId, employeeName, sopId, sopName) {
+  openModal('<h2>' + esc(employeeName) + '</h2><p class="hint">' + esc(sopName) + '</p><p class="hint">Загрузка…</p>');
+  api('employeeAttempts', { employeeId: employeeId, sopId: sopId }).then(function (data) {
+    renderEmployeeSopModal(employeeName, sopName, data.attempts);
   }).catch(function (e) {
-    var box = document.getElementById('empAttempts_' + employeeId);
-    if (box) box.textContent = 'Ошибка загрузки разбора: ' + e.message;
+    openModal('<h2>' + esc(employeeName) + '</h2><div class="error">' + esc(e.message) + '</div>' +
+      '<button class="btn secondary block" id="modalCloseBtn">Закрыть</button>');
+    document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
   });
 }
 
-function renderEmployeeAttemptsBreakdown(employeeId, attempts) {
-  var box = document.getElementById('empAttempts_' + employeeId);
-  if (!box) return;
-  if (!attempts.length) { box.textContent = 'Нет завершённых попыток.'; return; }
-
-  box.innerHTML = attempts.map(function (a) {
-    var qRows = a.details.map(function (d, di) {
-      return '<div class="qbreak-row ' + (d.isCorrect ? 'ok' : 'bad') + '">' +
-        '<div class="qbreak-text">' + (di + 1) + '. ' + esc(d.text) + (d.punkt ? ' <span class="hint">(' + esc(d.punkt) + ')</span>' : '') + '</div>' +
-        '<div class="qbreak-ans">Ответ сотрудника: ' + esc(d.selectedTexts.join('; ') || '—') + '</div>' +
-        '<div class="qbreak-ans">Правильный ответ: ' + esc(d.correctTexts.join('; ')) + '</div>' +
-        '<div class="qbreak-mark">' + (d.isCorrect ? 'Верно' : 'Неверно') + '</div>' +
+function renderEmployeeSopModal(employeeName, sopName, attempts) {
+  var body = '<h2>' + esc(employeeName) + '</h2><p class="hint">' + esc(sopName) + '</p>';
+  if (!attempts.length) {
+    body += '<p class="hint">Нет завершённых попыток.</p>';
+  } else {
+    body += attempts.map(function (a) {
+      var wrong = a.details.filter(function (d) { return !d.isCorrect; });
+      var wrongHtml = wrong.length
+        ? wrong.map(function (d, i) {
+            return '<div class="qbreak-row bad">' +
+              '<div class="qbreak-text">' + (i + 1) + '. ' + esc(d.text) + '</div>' +
+              '<div class="qbreak-ans">Ответ сотрудника: ' + esc(d.selectedTexts.join('; ') || '—') + '</div>' +
+              '<div class="qbreak-ans">Правильный ответ: ' + esc(d.correctTexts.join('; ')) + '</div>' +
+              (d.punkt ? '<div class="qbreak-ans">Пункт СОП: ' + esc(d.punkt) + '</div>' : '') +
+            '</div>';
+          }).join('')
+        : '<p class="hint">Все ответы верные.</p>';
+      return '<div class="attempt-block">' +
+        '<div class="attempt-head"><b>' + fmtDate(a.start) + '</b> · Балл: <b>' + esc(a.score) + '%</b> · ' + esc(a.status) +
+          ' · переключений вкладки: ' + esc(a.tabSwitches || 0) +
+        '</div>' +
+        wrongHtml +
       '</div>';
     }).join('');
-    return '<div class="attempt-block">' +
-      '<div class="attempt-head"><b>' + esc(a.sopName) + '</b> (версия ' + esc(a.version) + ') · ' + fmtDate(a.start) + ' · ' +
-        '<b>' + esc(a.score) + '%</b> · ' + esc(a.status) + ' · переключений вкладки: ' + esc(a.tabSwitches || 0) +
-      '</div>' +
-      qRows +
-    '</div>';
-  }).join('');
+  }
+  body += '<button class="btn secondary block" id="modalCloseBtn">Закрыть</button>';
+  openModal(body);
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
 }
 
 // ---------------------------------------------------------------------------

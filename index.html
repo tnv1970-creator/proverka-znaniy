@@ -141,6 +141,8 @@
   .qbreak-row.ok .qbreak-mark { color: var(--success); }
 
   .print-header { display: none; }
+  #staffReportPrint { display: none; }
+  .staff-report-page { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px dashed var(--border); }
 
   .ea-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
   .ea-sop { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: #fff; }
@@ -171,6 +173,14 @@
     body.printing-ea .print-header { display: block !important; margin-bottom: 12px; }
     body.printing-ea .ea-sop { break-inside: avoid; border-color: #999; }
     body.printing-ea .ea-sop > summary:after { content: ''; }
+
+    body.printing-staff > .topbar, body.printing-staff > .footer { display: none !important; }
+    body.printing-staff main#app { max-width: none; padding: 0; margin: 0; }
+    body.printing-staff main#app > .card { display: none !important; }
+    body.printing-staff #staffReportPrint { display: block !important; }
+    body.printing-staff .staff-report-page { break-after: page; border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+    body.printing-staff .staff-report-page:last-child { break-after: auto; }
+    body.printing-staff .print-header { display: block !important; margin-bottom: 12px; }
   }
 </style>
 </head>
@@ -921,10 +931,14 @@ function renderDashboardBody() {
         '<div><label>СОП</label><select id="eaSop">' + sopOptions + '</select></div>' +
         '<div><label>Сотрудник</label><select id="eaEmployee">' + buildEmployeeOptionsHtml('', '') + '</select></div>' +
       '</div>' +
-      '<div class="btn-row no-print"><button class="btn secondary" id="eaPrintBtn">Печать / PDF</button></div>' +
+      '<div class="btn-row no-print">' +
+        '<button class="btn secondary" id="eaPrintBtn">Печать / PDF</button>' +
+        '<button class="btn secondary" id="staffReportBtn">Справки по сотрудникам (печать)</button>' +
+      '</div>' +
       '<div id="eaSummary" class="ea-summary"></div>' +
       '<div id="eaSopList"></div>' +
-    '</div>';
+    '</div>' +
+    '<div id="staffReportPrint"></div>';
 
   document.getElementById('fBranch').addEventListener('change', function () {
     document.getElementById('fDept').innerHTML = buildDeptOptionsHtml(document.getElementById('fBranch').value);
@@ -948,6 +962,7 @@ function renderDashboardBody() {
     document.getElementById(id).addEventListener('change', loadErrorAnalysis);
   });
   document.getElementById('eaPrintBtn').addEventListener('click', printErrorAnalysis);
+  document.getElementById('staffReportBtn').addEventListener('click', openStaffReport);
   loadErrorAnalysis();
 }
 
@@ -1102,7 +1117,81 @@ function printErrorAnalysis() {
 
 window.addEventListener('afterprint', function () {
   document.body.classList.remove('printing-ea');
+  document.body.classList.remove('printing-staff');
 });
+
+/**
+ * Аналитическая справка по каждому сотруднику сразу (с учётом фильтров «Филиал» /
+ * «Подразделение» из блока «Анализ ошибок»): по каждому СОПу — статус, балл, число
+ * попыток и темы (пункты СОП) для повторного изучения, с разрывом страницы между
+ * сотрудниками — чтобы распечатать и передать руководителю сестринской службы.
+ */
+function openStaffReport() {
+  var branchId = document.getElementById('eaBranch').value;
+  var deptId = document.getElementById('eaDept').value;
+  var employeeId = document.getElementById('eaEmployee').value;
+  var btn = document.getElementById('staffReportBtn');
+  btn.disabled = true; btn.textContent = 'Формирование…';
+  api('staffReport', { branchId: branchId || undefined, departmentId: deptId || undefined, employeeId: employeeId || undefined })
+    .then(function (data) {
+      btn.disabled = false; btn.textContent = 'Справки по сотрудникам (печать)';
+      if (!data.report.length) { alert('Нет сотрудников по выбранным фильтрам.'); return; }
+      renderStaffReportPrint(data);
+      document.body.classList.add('printing-staff');
+      window.print();
+    })
+    .catch(function (e) {
+      btn.disabled = false; btn.textContent = 'Справки по сотрудникам (печать)';
+      alert(e.message);
+    });
+}
+
+function renderStaffReportPrint(data) {
+  var container = document.getElementById('staffReportPrint');
+  var dateText = fmtDate(data.generatedAt);
+
+  container.innerHTML = data.report.map(function (emp) {
+    var sopsWithData = emp.sops.filter(function (s) { return s.state !== 'не_открыт'; });
+
+    var sopsHtml = sopsWithData.length
+      ? sopsWithData.map(function (s) {
+          var scoreText = s.lastScore != null
+            ? ' · балл: ' + esc(s.lastScore) + '%' + (s.bestScore != null && s.bestScore !== s.lastScore ? ' (лучший: ' + esc(s.bestScore) + '%)' : '')
+            : '';
+          var topicsHtml = s.topics.length
+            ? '<div class="qbreak-ans">Темы для повторного изучения: ' +
+                s.topics.map(function (t) { return t.punkt ? 'пункт ' + esc(t.punkt) : esc(t.text); }).join('; ') +
+              '</div>'
+            : (s.state === 'сдан' ? '<div class="qbreak-ans">Ошибок не было.</div>' : '');
+          return '<div class="qbreak-row ' + (s.topics.length ? 'bad' : 'ok') + '">' +
+            '<div class="qbreak-text">' + esc(s.code || s.name) + ' — ' + esc(s.name) + '</div>' +
+            '<div class="qbreak-ans">Статус: ' + statusLabel(s.state) + scoreText + (s.attemptsCount ? ' · попыток: ' + s.attemptsCount : '') + '</div>' +
+            topicsHtml +
+          '</div>';
+        }).join('')
+      : '<p class="hint">Тестирование ещё не начато.</p>';
+
+    var groups = sopsWithData.filter(function (s) { return s.topics.length; });
+    var recommendationHtml = groups.length
+      ? '<div class="qbreak-mark">Рекомендация: повторно изучить — ' +
+          groups.map(function (s) {
+            return esc(s.code || s.name) + ' (' + s.topics.map(function (t) { return t.punkt ? 'п.' + esc(t.punkt) : esc(t.text); }).join(', ') + ')';
+          }).join('; ') +
+        '</div>'
+      : '<div class="qbreak-mark">Рекомендация: замечаний нет.</div>';
+
+    return '<div class="staff-report-page">' +
+      '<div class="print-header">' +
+        '<h1 style="margin:0 0 4px">Аналитическая справка по результатам тестирования</h1>' +
+        '<p style="margin:0">Сотрудник: ' + esc(emp.name) + '</p>' +
+        '<p style="margin:0">' + esc(emp.branchName) + (emp.departmentName ? ' — ' + esc(emp.departmentName) : '') + '</p>' +
+        '<p style="margin:0">Дата формирования: ' + esc(dateText) + '</p>' +
+      '</div>' +
+      '<div class="attempt-block">' + sopsHtml + '</div>' +
+      recommendationHtml +
+    '</div>';
+  }).join('');
+}
 
 function renderMatrixTable() {
   var d = state.dashboard;

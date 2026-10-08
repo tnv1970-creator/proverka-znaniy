@@ -1025,24 +1025,41 @@ function renderErrorAnalysisBody() {
 
   if (data.employeeId) {
     listBox.innerHTML = data.sops.map(function (sop) {
-      var mHtml = sop.mistakes.map(function (m) {
-        return '<div class="ea-q">' +
-          '<div class="ea-q-head">' + esc(m.text) + '</div>' +
-          (m.punkt ? '<div class="ea-q-meta">Пункт СОП: ' + esc(m.punkt) + '</div>' : '') +
-          '<div class="ea-q-meta">Попытка от ' + fmtDate(m.date) + ' · балл ' + esc(m.score) + '%</div>' +
-        '</div>';
+      var attemptsHtml = sop.attempts.map(function (a) {
+        return '<div class="ea-q-meta">' + fmtDate(a.date) + ' · балл ' + esc(a.score) + '% · ' + statusLabel(a.status) +
+          (a.unanswered ? ' · без ответа: ' + a.unanswered + ' из ' + a.total : '') + '</div>';
       }).join('');
+      var topicsHtml = sop.topics.length
+        ? sop.topics.map(function (t) {
+            return '<div class="ea-q">' +
+              '<div class="ea-q-head">' + (t.punkt ? 'Пункт СОП: ' + esc(t.punkt) : esc(t.text)) + '</div>' +
+              (t.punkt ? '<div class="ea-q-meta">' + esc(t.text) + '</div>' : '') +
+              '<div class="ea-q-stat">Ошибалась ' + t.count + ' раз из ' + sop.attemptsCount + ' попыток</div>' +
+            '</div>';
+          }).join('')
+        : '<p class="hint">Ошибок нет.</p>';
       return '<details class="ea-sop" open>' +
         '<summary><span>' + esc(sop.code || sop.name) + ' — ' + esc(sop.name) + '</span>' +
-          '<span class="ea-sop-meta">ошибок: ' + sop.mistakes.length + '</span>' +
+          '<span class="ea-sop-meta">лучший результат: ' + esc(sop.bestScore) + '% · последняя попытка: ' + esc(sop.lastScore) + '% (' + statusLabel(sop.lastStatus) + ')</span>' +
         '</summary>' +
-        '<div class="ea-questions">' + mHtml + '</div>' +
+        '<div class="ea-questions">' +
+          '<div class="hint" style="margin-bottom:6px">Попытки (' + sop.attemptsCount + '):</div>' +
+          attemptsHtml +
+          '<div class="hint" style="margin:12px 0 6px">Проблемные темы (по убыванию частоты):</div>' +
+          topicsHtml +
+        '</div>' +
       '</details>';
     }).join('');
     return;
   }
 
   listBox.innerHTML = data.sops.map(function (sop) {
+    var topicsHtml = (sop.topics || []).map(function (t) {
+      return '<div class="ea-q">' +
+        '<div class="ea-q-head">' + (t.punkt ? 'Пункт СОП: ' + esc(t.punkt) : esc(t.text)) + '</div>' +
+        '<div class="ea-q-stat">Ошибок в ' + t.wrong + ' из ' + t.total + ' ответов (' + t.wrongPercent + '%)</div>' +
+      '</div>';
+    }).join('');
     var qHtml = sop.questions.map(function (q) {
       return '<div class="ea-q">' +
         '<div class="ea-q-head">' + (q.number != null ? q.number + '. ' : '') + esc(q.text) + '</div>' +
@@ -1054,7 +1071,12 @@ function renderErrorAnalysisBody() {
       '<summary><span>' + esc(sop.code || sop.name) + ' — ' + esc(sop.name) + '</span>' +
         '<span class="ea-sop-meta">прошли: ' + sop.passedCount + ' · ошиблись: ' + sop.erredCount + ' из ' + sop.totalPeople + ' · ' + sop.errorPercent + '% ошибок</span>' +
       '</summary>' +
-      '<div class="ea-questions">' + (qHtml || '<p class="hint">Нет вопросов с ошибками.</p>') + '</div>' +
+      '<div class="ea-questions">' +
+        '<div class="hint" style="margin-bottom:6px">Проблемные темы (разобрать с коллективом):</div>' +
+        (topicsHtml || '<p class="hint">—</p>') +
+        '<div class="hint" style="margin:12px 0 6px">Все вопросы с ошибками:</div>' +
+        (qHtml || '<p class="hint">Нет вопросов с ошибками.</p>') +
+      '</div>' +
     '</details>';
   }).join('');
 }

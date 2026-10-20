@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сестринское дело: обучение и тестирование</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #1565c0;
+    --primary-dark: #0d47a1;
+    --border: #e0e4e8;
+    --danger: #c62828;
+    --success: #2e7d32;
+    --radius: 10px;
+
+    --st-gray: #cfd8dc;
+    --st-yellow: #ffca28;
+    --st-blue: #4fc3f7;
+    --st-green: #66bb6a;
+    --st-red: #ef5350;
+    --st-darkred: #8e0000;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; background: var(--primary); color: #fff; padding: 12px 16px; }
+  .brand { font-weight: 600; font-size: 16px; }
+  .userbox { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .btn-link { background: none; border: none; color: #fff; text-decoration: underline; cursor: pointer; font-size: 14px; padding: 4px; }
+
+  main#app { flex: 1; padding: 16px; max-width: 900px; margin: 0 auto; width: 100%; }
+
+  .footer { text-align: center; color: var(--muted); font-size: 12px; padding: 10px; }
+
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  h2 { font-size: 17px; margin: 0 0 10px; }
+  p { line-height: 1.5; }
+
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  select, input[type=text], input[type=password], input[type=tel] {
+    width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; background: #fff;
+  }
+
+  button.btn {
+    display: inline-block; padding: 13px 18px; font-size: 15px; font-weight: 600; border-radius: 8px;
+    border: none; cursor: pointer; background: var(--primary); color: #fff; min-height: 46px;
+  }
+  button.btn:hover { background: var(--primary-dark); }
+  button.btn:disabled { background: #9fa8b3; cursor: not-allowed; }
+  button.btn.secondary { background: #eceff1; color: var(--text); }
+  button.btn.secondary:hover { background: #dfe3e6; }
+  button.btn.danger { background: var(--danger); }
+  button.btn.block { width: 100%; margin-top: 12px; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+  .error { background: #fdecea; color: var(--danger); padding: 10px 12px; border-radius: 8px; margin: 10px 0; font-size: 14px; }
+  .hint { color: var(--muted); font-size: 13px; }
+
+  .sop-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+  .sop-item:last-child { border-bottom: none; }
+  .sop-name { font-weight: 600; }
+  .sop-meta { color: var(--muted); font-size: 13px; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .badge.не_открыт { background: var(--st-gray); color: #37474f; }
+  .badge.открыт { background: var(--st-yellow); color: #5c4400; }
+  .badge.ознакомлен { background: var(--st-blue); color: #01323f; }
+  .badge.сдан { background: var(--st-green); }
+  .badge.не_сдан, .badge.попытки_исчерпаны, .badge.не_сдан_исчерпаны { background: var(--st-red); }
+  .badge.нужно_повторное_ознакомление { background: var(--st-darkred); }
+
+  .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 20px; }
+  .timer.low { color: var(--danger); }
+
+  .qcard { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+  .qcard .qtext { font-weight: 600; margin-bottom: 8px; }
+  .qopt { display: flex; align-items: flex-start; gap: 8px; padding: 6px 4px; cursor: pointer; border-radius: 6px; }
+  .qopt input { margin-top: 3px; }
+  .qnum { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .qopt.opt-correct { background: #e8f5e9; }
+  .qopt.opt-wrong { background: #fdecea; }
+  .qfeedback { font-weight: 700; margin-top: 8px; }
+  .qfeedback.ok { color: var(--success); }
+  .qfeedback.bad { color: var(--danger); }
+  .qpunkt { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .modal-box { background: #fff; border-radius: var(--radius); max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 18px; }
+  .modal-box h2 { margin-top: 0; }
+
+  table.matrix { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.matrix th, table.matrix td { border: 1px solid var(--border); padding: 6px 8px; text-align: center; white-space: nowrap; }
+  table.matrix th { background: #eceff1; position: sticky; top: 0; z-index: 1; }
+  table.matrix td.name-cell { text-align: left; font-weight: 600; cursor: pointer; background: #fafafa; }
+  table.matrix td.cell-clickable { cursor: pointer; }
+  table.matrix td.cell-clickable:hover .cell-state { outline: 2px solid var(--primary); outline-offset: -2px; }
+  table.matrix th:first-child, table.matrix td.name-cell { position: sticky; left: 0; z-index: 2; }
+  table.matrix th:first-child { z-index: 3; background: #eceff1; }
+  .cell-state { display: inline-block; width: 100%; padding: 3px 0; border-radius: 4px; color: #fff; font-size: 12px; }
+  .cell-state.не_открыт { background: var(--st-gray); color: #37474f; }
+  .cell-state.открыт { background: var(--st-yellow); color: #5c4400; }
+  .cell-state.ознакомлен { background: var(--st-blue); color: #01323f; }
+  .cell-state.сдан { background: var(--st-green); }
+  .cell-state.не_сдан, .cell-state.не_сдан_исчерпаны { background: var(--st-red); }
+
+  .table-scroll { overflow-x: auto; }
+
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filters > div { flex: 1; min-width: 140px; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .summary-item { background: #fafafa; border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .summary-item .n { font-size: 20px; font-weight: 700; }
+
+  .emp-detail { background: #fafafa; border-top: 2px solid var(--primary); }
+  .emp-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+
+  .score-big { font-size: 42px; font-weight: 700; text-align: center; margin: 10px 0; }
+  .score-big.pass { color: var(--success); }
+  .score-big.fail { color: var(--danger); }
+  .result-status { text-align: center; font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .result-status.pass { color: var(--success); }
+  .result-status.fail { color: var(--danger); }
+
+  .attempt-block { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 8px 0; background: #fff; }
+  .attempt-head { margin-bottom: 8px; }
+  .qbreak-row { border-top: 1px solid var(--border); padding: 8px 4px; font-size: 13px; }
+  .qbreak-row:first-of-type { border-top: none; }
+  .qbreak-row.bad { background: #fdecea; }
+  .qbreak-row.ok { background: #eef7ee; }
+  .qbreak-text { font-weight: 600; margin-bottom: 4px; }
+  .qbreak-ans { color: var(--muted); }
+  .qbreak-mark { font-weight: 700; margin-top: 4px; }
+  .qbreak-row.bad .qbreak-mark { color: var(--danger); }
+  .qbreak-row.ok .qbreak-mark { color: var(--success); }
+
+  .print-header { display: none; }
+  #staffReportPrint { display: none; }
+  .staff-report-page { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px dashed var(--border); }
+
+  .ea-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .ea-sop { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: #fff; }
+  .ea-sop > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ea-sop > summary::-webkit-details-marker { display: none; }
+  .ea-sop > summary:after { content: '\25BE'; color: var(--muted); margin-left: auto; }
+  .ea-sop[open] > summary:after { content: '\25B4'; }
+  .ea-sop-meta { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .ea-questions { border-top: 1px solid var(--border); padding: 8px 12px 10px; }
+  .ea-q { padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .ea-q:last-child { border-bottom: none; }
+  .ea-q-head { font-weight: 600; white-space: pre-wrap; word-break: break-word; }
+  .ea-q-meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .ea-q-stat { font-weight: 700; margin-top: 2px; }
+
+  @media (max-width: 480px) {
+    main#app { padding: 10px; }
+    .card { padding: 12px; }
+  }
+
+  @media print {
+    @page { size: A4 portrait; margin: 14mm 12mm; }
+    body.printing-ea > .topbar, body.printing-ea > .footer { display: none !important; }
+    body.printing-ea main#app { max-width: none; padding: 0; margin: 0; }
+    body.printing-ea main#app > .card { display: none !important; }
+    body.printing-ea main#app > .card#errorAnalysisCard { display: block !important; box-shadow: none; border: none; padding: 0; margin: 0; }
+    body.printing-ea .no-print { display: none !important; }
+    body.printing-ea .print-header { display: block !important; margin-bottom: 12px; }
+    body.printing-ea .ea-sop { break-inside: avoid; border-color: #999; }
+    body.printing-ea .ea-sop > summary:after { content: ''; }
+
+    body.printing-staff > .topbar, body.printing-staff > .footer { display: none !important; }
+    body.printing-staff main#app { max-width: none; padding: 0; margin: 0; }
+    body.printing-staff main#app > .card { display: none !important; }
+    body.printing-staff #staffReportPrint { display: block !important; }
+    body.printing-staff .staff-report-page { break-after: page; border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+    body.printing-staff .staff-report-page:last-child { break-after: auto; }
+    body.printing-staff .print-header { display: block !important; margin-bottom: 12px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Сестринское дело · Обучение и тестирование</div>
+  <div class="userbox" id="userbox" hidden>
+    <span id="userName"></span>
+    <button class="btn-link" id="logoutBtn">Выйти</button>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<footer class="footer">
+  <span id="versionMark"></span>
+</footer>
+
+<script>
+// ---------------------------------------------------------------------------
+// Конфигурация
+// ---------------------------------------------------------------------------
+var CONFIG = {
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxLsjDUwEmH6Y5_xAwD2E3PLp-CAfHwO88gez5AQ-zxSMO7fzEnKfFOfJqKLDLpvlmy5g/exec',
+  VERSION: 'v1.0 · 28.09.2026'
+};
+
+var state = {
+  token: sessionStorage.getItem('ss_token') || null,
+  role: sessionStorage.getItem('ss_role') || null,
+  name: sessionStorage.getItem('ss_name') || null,
+  employeeId: sessionStorage.getItem('ss_employeeId') || null,
+  branchId: sessionStorage.getItem('ss_branchId') || null,
+  departmentId: sessionStorage.getItem('ss_departmentId') || null,
+  directory: null,
+  sops: [],
+  currentSop: null,
+  test: null,
+  dashboard: null,
+  errorAnalysis: null
+};
+
+var app = document.getElementById('app');
+document.getElementById('versionMark').textContent = CONFIG.VERSION;
+
+// ---------------------------------------------------------------------------
+// API
+// ---------------------------------------------------------------------------
+function api(action, params) {
+  return fetch(CONFIG.APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action, token: state.token }, params || {}))
+  })
+  .then(function (r) { return r.json(); })
+  .then(function (data) {
+    if (!data.ok) throw new Error(data.error || 'Ошибка сервера');
+    return data;
+  });
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function openModal(html) {
+  closeModal();
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modalOverlay';
+  overlay.innerHTML = '<div class="modal-box">' + html + '</div>';
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+  document.body.appendChild(overlay);
+}
+
+function closeModal() {
+  var existing = document.getElementById('modalOverlay');
+  if (existing) existing.remove();
+}
+
+/** Список вопросов с ошибками для медсестры: текст, её ответ (красным), пункт СОП. Без правильного ответа. */
+function mistakesListHtml(mistakes) {
+  if (!mistakes || !mistakes.length) return '<p class="hint">Ошибок нет.</p>';
+  return mistakes.map(function (m) {
+    return '<div class="sop-item" style="flex-direction:column; align-items:stretch;">' +
+      '<div class="sop-name">' + esc(m.text) + '</div>' +
+      '<div class="qbreak-ans">Ваш ответ: <span style="color:var(--danger); font-weight:600">' +
+        esc((m.selectedTexts || []).join('; ') || '—') + '</span></div>' +
+      (m.punkt ? '<div class="sop-meta">Пункт СОП: ' + esc(m.punkt) + '</div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function statusLabel(status) {
+  var map = {
+    'не_открыт': 'Не открыт',
+    'открыт': 'Открыт',
+    'ознакомлен': 'Ознакомлена',
+    'сдан': 'Сдан',
+    'не_сдан': 'Не сдан',
+    'попытки_исчерпаны': 'Попытки исчерпаны',
+    'не_сдан_исчерпаны': 'Не сдан (попытки исчерпаны)',
+    'нужно_повторное_ознакомление': 'Требуется повторное ознакомление'
+  };
+  return map[status] || status;
+}
+
+// ---------------------------------------------------------------------------
+// Общий рендер / роутинг
+// ---------------------------------------------------------------------------
+function persistSession() {
+  ['token','role','name','employeeId','branchId','departmentId'].forEach(function (k) {
+    if (state[k] != null) sessionStorage.setItem('ss_' + k, state[k]); else sessionStorage.removeItem('ss_' + k);
+  });
+}
+
+function logout() {
+  state.token = null; state.role = null; state.name = null;
+  state.employeeId = null; state.branchId = null; state.departmentId = null;
+  state.sops = []; state.currentSop = null; state.test = null; state.dashboard = null;
+  ['token','role','name','employeeId','branchId','departmentId'].forEach(function (k) { sessionStorage.removeItem('ss_' + k); });
+  updateUserbox();
+  route();
+}
+
+function updateUserbox() {
+  var box = document.getElementById('userbox');
+  if (state.token) {
+    box.hidden = false;
+    document.getElementById('userName').textContent = state.name + (state.role !== 'медсестра' ? ' (админ)' : '');
+  } else {
+    box.hidden = true;
+  }
+}
+
+document.getElementById('logoutBtn').addEventListener('click', logout);
+
+function route() {
+  updateUserbox();
+  if (!state.token) { renderLogin(); return; }
+  if (state.role === 'медсестра') { renderHome(); }
+  else { renderAdminDashboard(); }
+}
+
+// ---------------------------------------------------------------------------
+// Экран входа
+// ---------------------------------------------------------------------------
+function renderLogin(error) {
+  app.innerHTML =
+    '<div class="card">' +
+      '<h1>Вход</h1>' +
+      (error ? '<div class="error">' + esc(error) + '</div>' : '') +
+      '<label>Филиал</label><select id="loginBranch"><option value="">Загрузка…</option></select>' +
+      '<label>Подразделение</label><select id="loginDept" disabled><option value="">Сначала выберите филиал</option></select>' +
+      '<label>ФИО</label><select id="loginEmployee" disabled><option value="">Сначала выберите подразделение</option></select>' +
+      '<label>PIN</label><input type="password" id="loginPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="4-6 цифр">' +
+      '<button class="btn block" id="loginBtn">Войти</button>' +
+    '</div>';
+
+  loadDirectory().then(function () {
+    fillBranchSelect();
+  }).catch(function (e) {
+    document.getElementById('loginBranch').innerHTML = '<option value="">Ошибка загрузки</option>';
+    showLoginError(e.message);
+  });
+
+  document.getElementById('loginBranch').addEventListener('change', onLoginBranchChange);
+  document.getElementById('loginDept').addEventListener('change', onLoginDeptChange);
+  document.getElementById('loginBtn').addEventListener('click', onLoginSubmit);
+  document.getElementById('loginPin').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') onLoginSubmit();
+  });
+}
+
+function showLoginError(msg) {
+  var existing = app.querySelector('.error');
+  if (existing) existing.textContent = msg;
+  else app.querySelector('.card').insertAdjacentHTML('afterbegin', '<div class="error">' + esc(msg) + '</div>');
+}
+
+function loadDirectory() {
+  if (state.directory) return Promise.resolve(state.directory);
+  return api('getDirectory').then(function (data) {
+    state.directory = data;
+    return data;
+  });
+}
+
+function fillBranchSelect() {
+  var sel = document.getElementById('loginBranch');
+  sel.innerHTML = '<option value="">Выберите филиал</option>' +
+    state.directory.branches.map(function (b) { return '<option value="' + esc(b.id) + '">' + esc(b.name) + '</option>'; }).join('');
+}
+
+function onLoginBranchChange() {
+  var branchId = document.getElementById('loginBranch').value;
+  var deptSel = document.getElementById('loginDept');
+  var empSel = document.getElementById('loginEmployee');
+  empSel.innerHTML = '<option value="">Сначала выберите подразделение</option>';
+  empSel.disabled = true;
+  if (!branchId) { deptSel.innerHTML = '<option value="">Сначала выберите филиал</option>'; deptSel.disabled = true; return; }
+  var depts = state.directory.departments.filter(function (d) { return String(d.branchId) === String(branchId); });
+  deptSel.innerHTML = '<option value="">Выберите подразделение</option>' +
+    depts.map(function (d) { return '<option value="' + esc(d.id) + '">' + esc(d.name) + '</option>'; }).join('');
+  deptSel.disabled = false;
+}
+
+function onLoginDeptChange() {
+  var deptId = document.getElementById('loginDept').value;
+  var empSel = document.getElementById('loginEmployee');
+  if (!deptId) { empSel.innerHTML = '<option value="">Сначала выберите подразделение</option>'; empSel.disabled = true; return; }
+  var emps = state.directory.employees.filter(function (e) { return String(e.departmentId) === String(deptId); });
+  empSel.innerHTML = '<option value="">Выберите ФИО</option>' +
+    emps.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.name) + '</option>'; }).join('');
+  empSel.disabled = false;
+}
+
+function onLoginSubmit() {
+  var employeeId = document.getElementById('loginEmployee').value;
+  var pin = document.getElementById('loginPin').value;
+  if (!employeeId) { showLoginError('Выберите сотрудника'); return; }
+  if (!/^\d{4,6}$/.test(pin)) { showLoginError('PIN должен содержать 4-6 цифр'); return; }
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Вход…';
+  api('login', { employeeId: employeeId, pin: pin }).then(function (data) {
+    state.token = data.token; state.role = data.role; state.name = data.name;
+    state.employeeId = data.employeeId; state.branchId = data.branchId; state.departmentId = data.departmentId;
+    persistSession();
+    route();
+  }).catch(function (e) {
+    btn.disabled = false; btn.textContent = 'Войти';
+    showLoginError(e.message);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Главная медсестры: список СОПов
+// ---------------------------------------------------------------------------
+function renderHome() {
+  app.innerHTML = '<div class="card"><h1>Мои СОПы</h1><p class="hint">Загрузка…</p></div>';
+  api('mySops').then(function (data) {
+    state.sops = data.sops;
+    var rows = state.sops.map(function (s) {
+      var actionBtn = sopActionButton(s);
+      var myErrorsBtn = (s.status === 'сдан')
+        ? '<button class="btn secondary" style="margin-top:6px" data-my-errors="' + esc(s.id) + '">Мои ошибки' +
+          (s.lastMistakes && s.lastMistakes.length ? ' (' + s.lastMistakes.length + ')' : '') + '</button>'
+        : '';
+      return '<div class="sop-item">' +
+        '<div>' +
+          '<div class="sop-name">' + esc(s.name) + '</div>' +
+          '<div class="sop-meta">Версия ' + esc(s.version) + (s.lastScore != null ? ' · Балл: ' + esc(s.lastScore) + '%' : '') + '</div>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+          '<div class="badge ' + s.status + '">' + statusLabel(s.status) + '</div><br>' +
+          '<button class="btn secondary" style="margin-top:6px" data-open-sop="' + esc(s.id) + '">' + actionBtn + '</button>' +
+          myErrorsBtn +
+        '</div>' +
+      '</div>';
+    }).join('') || '<p class="hint">Нет назначенных СОПов.</p>';
+
+    app.innerHTML =
+      '<div class="card"><h1>Мои СОПы</h1>' + rows + '</div>' +
+      '<div class="card"><button class="btn secondary block" id="toResultsBtn">Мои результаты</button></div>';
+
+    app.querySelectorAll('[data-open-sop]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sop = state.sops.filter(function (s) { return String(s.id) === btn.getAttribute('data-open-sop'); })[0];
+        state.currentSop = sop;
+        if (sop.ongoingAttemptId) { beginOrResumeTest(sop); }
+        else { renderSopDetail(sop); }
+      });
+    });
+    app.querySelectorAll('[data-my-errors]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var sop = state.sops.filter(function (s) { return String(s.id) === btn.getAttribute('data-my-errors'); })[0];
+        renderMyErrors(sop);
+      });
+    });
+    document.getElementById('toResultsBtn').addEventListener('click', renderMyResults);
+  }).catch(function (e) {
+    app.innerHTML = '<div class="card"><div class="error">' + esc(e.message) + '</div></div>';
+  });
+}
+
+function sopActionButton(s) {
+  if (s.status === 'не_открыт') return 'Открыть';
+  if (s.status === 'открыт') return 'Продолжить';
+  if (s.ongoingAttemptId) return 'Продолжить тест';
+  if (s.status === 'ознакомлен') return 'К тесту';
+  if (s.status === 'нужно_повторное_ознакомление') return 'Ознакомиться заново';
+  if (s.status === 'сдан' && s.attemptsUsed < s.maxAttempts) return 'Пересдать';
+  return 'Подробнее';
+}
+
+// ---------------------------------------------------------------------------
+// Мои ошибки (разбор последней попытки по пройденному СОПу)
+// ---------------------------------------------------------------------------
+function renderMyErrors(sop) {
+  var mistakes = sop.lastMistakes || [];
+  app.innerHTML =
+    '<div class="card">' +
+      '<h1>Мои ошибки — ' + esc(sop.name) + '</h1>' +
+      '<p class="hint">Последняя попытка' + (sop.lastAttemptDate ? ' · ' + fmtDate(sop.lastAttemptDate) : '') +
+        ' · Балл: ' + esc(sop.lastScore) + '%</p>' +
+      (mistakes.length
+        ? '<h2 style="margin-top:16px">Вопросы, в которых вы ошиблись (' + mistakes.length + ')</h2>' + mistakesListHtml(mistakes)
+        : '<p class="hint">В последней попытке ошибок не было.</p>') +
+      '<button class="btn secondary block" id="backHomeBtn4">Назад к списку СОПов</button>' +
+    '</div>';
+  document.getElementById('backHomeBtn4').addEventListener('click', renderHome);
+}
+
+// ---------------------------------------------------------------------------
+// Детали СОП: открытие PDF, отсчёт до "Ознакомлена"
+// ---------------------------------------------------------------------------
+var readTimerHandle = null;
+
+function renderSopDetail(sop) {
+  clearInterval(readTimerHandle);
+  var opened = sop.opened;
+  var remainingAttempts = Math.max(0, sop.maxAttempts - sop.attemptsUsed);
+  var testBtnLabel = sop.status === 'сдан' ? 'Пересдать тест' : 'Пройти тест';
+  var testBtnHtml = '';
+  if (sop.acknowledged) {
+    testBtnHtml = remainingAttempts > 0
+      ? '<button class="btn" id="toTestRulesBtn">' + testBtnLabel + '</button>'
+      : '<span class="hint">Попытки исчерпаны</span>';
+  }
+
+  var body =
+    '<div class="card">' +
+      '<h1>' + esc(sop.name) + '</h1>' +
+      '<p class="hint">Версия ' + esc(sop.version) +
+        (sop.attemptsUsed > 0 ? ' · Попыток использовано: ' + sop.attemptsUsed + ' из ' + sop.maxAttempts : '') + '</p>' +
+      '<div class="badge ' + sop.status + '">' + statusLabel(sop.status) + '</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn" id="openPdfBtn">' + (opened ? 'Открыть СОП повторно (PDF)' : 'Открыть СОП (PDF)') + '</button>' +
+        (sop.presentationUrl ? '<button class="btn secondary" id="openPresentationBtn">Презентация</button>' : '') +
+      '</div>' +
+      (opened ? '<div id="readTimerBox" style="margin-top:14px"></div>' : '') +
+      '<div class="btn-row">' +
+        '<button class="btn secondary" id="backHomeBtn">Назад к списку</button>' +
+        testBtnHtml +
+      '</div>' +
+    '</div>';
+
+  app.innerHTML = body;
+  document.getElementById('backHomeBtn').addEventListener('click', renderHome);
+  document.getElementById('openPdfBtn').addEventListener('click', function () { openSopPdf(sop); });
+  var presBtn = document.getElementById('openPresentationBtn');
+  if (presBtn) presBtn.addEventListener('click', function () { window.open(sop.presentationUrl, '_blank'); });
+  var toTest = document.getElementById('toTestRulesBtn');
+  if (toTest) toTest.addEventListener('click', function () { renderTestRules(sop); });
+
+  if (opened && !sop.acknowledged) startReadCountdown(sop);
+}
+
+function openSopPdf(sop) {
+  var btn = document.getElementById('openPdfBtn');
+  btn.disabled = true;
+  api('openSop', { sopId: sop.id }).then(function (data) {
+    sop.opened = data.openedAt;
+    window.open(data.pdfUrl, '_blank');
+    if (!document.getElementById('readTimerBox')) {
+      renderSopDetail(sop);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Открыть СОП повторно (PDF)';
+      if (!sop.acknowledged) startReadCountdown(sop);
+    }
+  }).catch(function (e) {
+    btn.disabled = false;
+    alert(e.message);
+  });
+}
+
+function startReadCountdown(sop) {
+  var box = document.getElementById('readTimerBox');
+  var openedMs = new Date(sop.opened).getTime();
+  var targetMs = openedMs + sop.minReadMinutes * 60000;
+
+  function tick() {
+    var remaining = Math.max(0, targetMs - Date.now());
+    if (remaining <= 0) {
+      clearInterval(readTimerHandle);
+      box.innerHTML = '<button class="btn block" id="ackBtn">Ознакомлена</button>';
+      document.getElementById('ackBtn').addEventListener('click', function () { doAcknowledge(sop); });
+    } else {
+      var s = Math.ceil(remaining / 1000);
+      box.innerHTML = '<p class="hint">Кнопка «Ознакомлена» станет доступна через ' + s + ' сек.</p>' +
+        '<button class="btn block" disabled>Ознакомлена</button>';
+    }
+  }
+  tick();
+  readTimerHandle = setInterval(tick, 1000);
+}
+
+function doAcknowledge(sop) {
+  var btn = document.getElementById('ackBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Сохранение…'; }
+  api('acknowledge', { sopId: sop.id }).then(function () {
+    sop.acknowledged = new Date().toISOString();
+    sop.status = 'ознакомлен';
+    renderSopDetail(sop);
+  }).catch(function (e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Ознакомлена'; }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Правила теста → сам тест
+// ---------------------------------------------------------------------------
+function renderTestRules(sop) {
+  var remainingAttempts = Math.max(0, sop.maxAttempts - sop.attemptsUsed);
+  app.innerHTML =
+    '<div class="card">' +
+      '<h1>Тест: ' + esc(sop.name) + '</h1>' +
+      '<p>Вопросов: <b>' + sop.questionsCount + '</b></p>' +
+      '<p>Время: <b>' + sop.minutesOnTest + ' мин</b></p>' +
+      '<p>Проходной балл: <b>' + sop.passPercent + '%</b></p>' +
+      '<p>Осталось попыток: <b>' + remainingAttempts + '</b> из ' + sop.maxAttempts + '</p>' +
+      '<p class="hint">После старта таймер запускается на сервере. Обновление страницы не даёт дополнительного времени.</p>' +
+      '<div class="btn-row">' +
+        '<button class="btn secondary" id="backBtn">Назад</button>' +
+        '<button class="btn" id="startTestBtn">Начать</button>' +
+      '</div>' +
+    '</div>';
+  document.getElementById('backBtn').addEventListener('click', function () { renderSopDetail(sop); });
+  document.getElementById('startTestBtn').addEventListener('click', function () { beginOrResumeTest(sop); });
+}
+
+function beginOrResumeTest(sop) {
+  var btn = document.getElementById('startTestBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Загрузка…'; }
+  api('startTest', { sopId: sop.id }).then(function (data) {
+    state.test = {
+      attemptId: data.attemptId,
+      deadline: data.deadline,
+      questions: data.questions,
+      saveTimers: {}
+    };
+    renderTest();
+  }).catch(function (e) {
+    alert(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Начать'; }
+  });
+}
+
+var testTimerHandle = null;
+
+/**
+ * Карточка одного вопроса. Для уже зафиксированного (проверенного) вопроса —
+ * подсветка выбранного варианта зелёным/красным и пункт СОП при ошибке,
+ * все поля ввода отключены (ответ менять нельзя). Правильный вариант при
+ * ошибке не показывается — он сюда и не передаётся сервером.
+ */
+function questionCardHtml(q, idx, total) {
+  var inputType = q.type === 'несколько' ? 'checkbox' : 'radio';
+  var locked = !!q.locked;
+  var opts = q.options.map(function (opt, oi) {
+    var pos = oi + 1;
+    var isSelected = q.selected.indexOf(pos) !== -1;
+    var checked = isSelected ? 'checked' : '';
+    var cls = '';
+    if (locked && isSelected) cls = q.correct ? 'opt-correct' : 'opt-wrong';
+    return '<label class="qopt ' + cls + '">' +
+      '<input type="' + inputType + '" name="q_' + idx + '" value="' + pos + '" data-qidx="' + idx + '" ' + checked + (locked ? ' disabled' : '') + '>' +
+      '<span>' + esc(opt) + '</span></label>';
+  }).join('');
+
+  var feedback = '';
+  if (locked) {
+    feedback = '<div class="qfeedback ' + (q.correct ? 'ok' : 'bad') + '">' + (q.correct ? 'Верно' : 'Неверно') + '</div>' +
+      (!q.correct && q.punkt ? '<div class="qpunkt">Повторите пункт СОП: ' + esc(q.punkt) + '</div>' : '');
+  }
+
+  var answerBtn = (q.type === 'несколько' && !locked)
+    ? '<div class="btn-row"><button class="btn secondary" data-answer-idx="' + idx + '"' + (q.selected.length ? '' : ' disabled') + '>Ответить</button></div>'
+    : '';
+
+  return '<div class="qcard" id="qcard_' + idx + '">' +
+    '<div class="qnum">Вопрос ' + (idx + 1) + ' из ' + total + (q.type === 'несколько' ? ' · можно выбрать несколько, затем нажмите «Ответить»' : '') + '</div>' +
+    '<div class="qtext">' + esc(q.text) + '</div>' +
+    opts + feedback + answerBtn +
+  '</div>';
+}
+
+function renderTest() {
+  var t = state.test;
+  var qHtml = t.questions.map(function (q, idx) { return questionCardHtml(q, idx, t.questions.length); }).join('');
+
+  app.innerHTML =
+    '<div class="card" style="position:sticky; top:0; z-index:5;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+        '<span>Осталось времени</span><span class="timer" id="testTimer">--:--</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card">' + qHtml +
+      '<button class="btn block" id="submitTestBtn">Отправить тест</button>' +
+    '</div>';
+
+  attachQuestionListeners();
+  document.getElementById('submitTestBtn').addEventListener('click', onSubmitTestClick);
+
+  clearInterval(testTimerHandle);
+  testTimerHandle = setInterval(updateTestTimer, 500);
+  updateTestTimer();
+
+  document.addEventListener('visibilitychange', onVisibilityChange);
+}
+
+function attachQuestionListeners() {
+  var t = state.test;
+  t.questions.forEach(function (q, idx) {
+    if (q.locked) return;
+    var card = document.getElementById('qcard_' + idx);
+    if (!card) return;
+    card.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(function (input) {
+      input.addEventListener('change', function () { onOptionChange(idx); });
+    });
+    var answerBtn = card.querySelector('[data-answer-idx]');
+    if (answerBtn) answerBtn.addEventListener('click', function () { onAnswerButtonClick(idx); });
+  });
+}
+
+/**
+ * Для «один»: выбор варианта сразу фиксирует и проверяет ответ.
+ * Для «несколько»: только запоминает выбор (и подстраховочно сохраняет его
+ * черновиком на сервер) — проверка происходит по кнопке «Ответить».
+ */
+function onOptionChange(idx) {
+  var t = state.test;
+  var q = t.questions[idx];
+  var checked = Array.prototype.slice.call(document.querySelectorAll('input[name="q_' + idx + '"]:checked'))
+    .map(function (i) { return Number(i.value); });
+  q.selected = checked;
+
+  if (q.type === 'несколько') {
+    var answerBtn = document.querySelector('#qcard_' + idx + ' [data-answer-idx]');
+    if (answerBtn) answerBtn.disabled = checked.length === 0;
+    clearTimeout(t.saveTimers[idx]);
+    t.saveTimers[idx] = setTimeout(function () {
+      api('saveAnswer', { attemptId: t.attemptId, questionId: q.questionId, selected: checked }).catch(function (err) { console.error(err); });
+    }, 1500);
+    return;
+  }
+
+  submitCheckAnswer(idx, checked);
+}
+
+function onAnswerButtonClick(idx) {
+  var q = state.test.questions[idx];
+  submitCheckAnswer(idx, q.selected || []);
+}
+
+function submitCheckAnswer(idx, selected) {
+  var t = state.test;
+  var q = t.questions[idx];
+  clearTimeout(t.saveTimers[idx]);
+  var card = document.getElementById('qcard_' + idx);
+  if (card) card.querySelectorAll('input, button').forEach(function (el) { el.disabled = true; });
+
+  api('checkAnswer', { attemptId: t.attemptId, questionId: q.questionId, selected: selected }).then(function (data) {
+    q.locked = true;
+    q.correct = data.correct;
+    q.punkt = data.punkt;
+    q.selected = selected;
+    var old = document.getElementById('qcard_' + idx);
+    if (old) {
+      var wrapper = document.createElement('div');
+      wrapper.innerHTML = questionCardHtml(q, idx, t.questions.length);
+      old.replaceWith(wrapper.firstElementChild);
+    }
+  }).catch(function (e) {
+    alert(e.message);
+    if (card) card.querySelectorAll('input, button').forEach(function (el) { el.disabled = false; });
+  });
+}
+
+function onVisibilityChange() {
+  if (document.hidden && state.test) {
+    api('saveAnswer', { attemptId: state.test.attemptId, tabSwitch: true }).catch(function () {});
+  }
+}
+
+function updateTestTimer() {
+  if (!state.test) return;
+  var remaining = new Date(state.test.deadline).getTime() - Date.now();
+  var el = document.getElementById('testTimer');
+  if (!el) return;
+  if (remaining <= 0) {
+    el.textContent = '00:00';
+    clearInterval(testTimerHandle);
+    finishTest(true);
+    return;
+  }
+  var totalSec = Math.floor(remaining / 1000);
+  var mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+  var ss = String(totalSec % 60).padStart(2, '0');
+  el.textContent = mm + ':' + ss;
+  el.classList.toggle('low', totalSec < 60);
+}
+
+function onSubmitTestClick() {
+  var unanswered = state.test.questions.filter(function (q) { return !q.selected || q.selected.length === 0; }).length;
+  if (unanswered > 0) {
+    if (!confirm('Без ответа осталось вопросов: ' + unanswered + '. Отправить тест сейчас?')) return;
+  }
+  finishTest(false);
+}
+
+function finishTest(auto) {
+  if (!state.test) return;
+  clearInterval(testTimerHandle);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  var attemptId = state.test.attemptId;
+
+  Object.keys(state.test.saveTimers).forEach(function (k) { clearTimeout(state.test.saveTimers[k]); });
+
+  var pending = state.test.questions.filter(function (q) { return !q.locked; }).map(function (q) {
+    return api('saveAnswer', { attemptId: attemptId, questionId: q.questionId, selected: q.selected || [] }).catch(function () {});
+  });
+
+  Promise.all(pending).then(function () {
+    return api('submitTest', { attemptId: attemptId });
+  }).then(function (result) {
+    state.test = null;
+    renderResult(result, auto);
+  }).catch(function (e) {
+    state.test = null;
+    alert((auto ? 'Время истекло. ' : '') + e.message);
+    renderHome();
+  });
+}
+
+function renderResult(result, auto) {
+  var pass = result.status === 'сдан';
+  var mistakesHtml = '';
+  if (result.mistakes && result.mistakes.length) {
+    mistakesHtml =
+      '<h2 style="margin-top:16px">Вопросы, в которых вы ошиблись (' + result.mistakes.length + ')</h2>' +
+      mistakesListHtml(result.mistakes);
+  }
+  app.innerHTML =
+    '<div class="card">' +
+      (auto ? '<p class="hint">Тест отправлен автоматически по истечении времени.</p>' : '') +
+      '<div class="result-status ' + (pass ? 'pass' : 'fail') + '">' + (pass ? 'Сдан' : 'Не сдан') + '</div>' +
+      '<div class="score-big ' + (pass ? 'pass' : 'fail') + '">' + result.score + '%</div>' +
+      mistakesHtml +
+      '<button class="btn block" id="toHomeBtn">Вернуться к списку СОПов</button>' +
+    '</div>';
+  document.getElementById('toHomeBtn').addEventListener('click', renderHome);
+}
+
+// ---------------------------------------------------------------------------
+// Мои результаты
+// ---------------------------------------------------------------------------
+function renderMyResults() {
+  app.innerHTML = '<div class="card"><h1>Мои результаты</h1><p class="hint">Загрузка…</p></div>';
+  api('myResults').then(function (data) {
+    var rows = data.attempts.map(function (a) {
+      var mistakesHtml = (a.mistakes && a.mistakes.length)
+        ? '<div style="margin-top:8px"><div class="hint" style="margin-bottom:4px">Ошибки (' + a.mistakes.length + '):</div>' + mistakesListHtml(a.mistakes) + '</div>'
+        : '<div class="hint" style="margin-top:6px">Ошибок нет.</div>';
+      return '<div class="sop-item" style="flex-direction:column; align-items:stretch;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">' +
+          '<div><div class="sop-name">' + esc(a.sopName) + '</div>' +
+          '<div class="sop-meta">' + fmtDate(a.start) + ' — ' + fmtDate(a.finished) + '</div></div>' +
+          '<div style="text-align:right"><div class="badge ' + (a.status === 'сдан' ? 'сдан' : 'не_сдан') + '">' + esc(a.score) + '%</div></div>' +
+        '</div>' +
+        mistakesHtml +
+      '</div>';
+    }).join('') || '<p class="hint">Пока нет завершённых попыток.</p>';
+    app.innerHTML = '<div class="card"><h1>Мои результаты</h1>' + rows +
+      '<button class="btn secondary block" id="backHomeBtn2">Назад</button></div>';
+    document.getElementById('backHomeBtn2').addEventListener('click', renderHome);
+  }).catch(function (e) {
+    app.innerHTML = '<div class="card"><div class="error">' + esc(e.message) + '</div>' +
+      '<button class="btn secondary block" id="backHomeBtn3">Назад</button></div>';
+    document.getElementById('backHomeBtn3').addEventListener('click', renderHome);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Дашборд администратора
+// ---------------------------------------------------------------------------
+function renderAdminDashboard() {
+  app.innerHTML = '<div class="card"><h1>Дашборд</h1><p class="hint">Загрузка…</p></div>';
+  api('dashboard').then(function (data) {
+    state.dashboard = data;
+    renderDashboardBody();
+  }).catch(function (e) {
+    app.innerHTML = '<div class="card"><div class="error">' + esc(e.message) + '</div></div>';
+  });
+}
+
+function renderDashboardBody() {
+  var d = state.dashboard;
+
+  var summaryHtml = d.summary.map(function (s) {
+    var pct = s.total ? Math.round(s.passedCount / s.total * 100) : 0;
+    return '<div class="summary-item"><div>' + esc(s.name) + '</div>' +
+      '<div class="n">' + s.passedCount + '/' + s.total + '</div>' +
+      '<div class="hint">сдали (' + pct + '%) · ознакомлено: ' + s.acknowledgedCount + '</div></div>';
+  }).join('');
+
+  var branchOptions = '<option value="">Все филиалы</option>' + d.branches.map(function (b) {
+    return '<option value="' + esc(b.id) + '">' + esc(b.name) + '</option>';
+  }).join('');
+  var sopOptions = '<option value="">Все СОПы</option>' + d.sops.map(function (s) {
+    return '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>';
+  }).join('');
+  var statusOptions = '<option value="">Любой статус</option>' +
+    ['не_открыт','открыт','ознакомлен','сдан','не_сдан','не_сдан_исчерпаны'].map(function (s) {
+      return '<option value="' + s + '">' + statusLabel(s) + '</option>';
+    }).join('');
+
+  app.innerHTML =
+    '<div class="card"><h1>Дашборд</h1><div class="summary-grid">' + (summaryHtml || '<p class="hint">Нет активных СОПов</p>') + '</div></div>' +
+    '<div class="card">' +
+      '<div class="filters">' +
+        '<div><label>Филиал</label><select id="fBranch">' + branchOptions + '</select></div>' +
+        '<div><label>Подразделение</label><select id="fDept">' + buildDeptOptionsHtml('') + '</select></div>' +
+        '<div><label>СОП</label><select id="fSop">' + sopOptions + '</select></div>' +
+        '<div><label>Статус</label><select id="fStatus">' + statusOptions + '</select></div>' +
+      '</div>' +
+      '<div class="table-scroll"><table class="matrix" id="matrixTable"></table></div>' +
+    '</div>' +
+    '<div class="card" id="errorAnalysisCard">' +
+      '<div class="print-header" id="eaPrintHeader"></div>' +
+      '<h2>Анализ ошибок</h2>' +
+      '<p class="hint no-print">Свод по СОПам и вопросам с ошибками — по убыванию % ошибок.</p>' +
+      '<div class="filters no-print">' +
+        '<div><label>Филиал</label><select id="eaBranch">' + branchOptions + '</select></div>' +
+        '<div><label>Подразделение</label><select id="eaDept">' + buildDeptOptionsHtml('') + '</select></div>' +
+        '<div><label>СОП</label><select id="eaSop">' + sopOptions + '</select></div>' +
+        '<div><label>Сотрудник</label><select id="eaEmployee">' + buildEmployeeOptionsHtml('', '') + '</select></div>' +
+      '</div>' +
+      '<div class="btn-row no-print">' +
+        '<button class="btn secondary" id="eaPrintBtn">Печать / PDF</button>' +
+        '<button class="btn secondary" id="staffReportBtn">Справки по сотрудникам (печать)</button>' +
+      '</div>' +
+      '<div id="eaSummary" class="ea-summary"></div>' +
+      '<div id="eaSopList"></div>' +
+    '</div>' +
+    '<div id="staffReportPrint"></div>';
+
+  document.getElementById('fBranch').addEventListener('change', function () {
+    document.getElementById('fDept').innerHTML = buildDeptOptionsHtml(document.getElementById('fBranch').value);
+    renderMatrixTable();
+  });
+  ['fDept','fSop','fStatus'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', renderMatrixTable);
+  });
+  renderMatrixTable();
+
+  document.getElementById('eaBranch').addEventListener('change', function () {
+    document.getElementById('eaDept').innerHTML = buildDeptOptionsHtml(document.getElementById('eaBranch').value);
+    document.getElementById('eaEmployee').innerHTML = buildEmployeeOptionsHtml(document.getElementById('eaBranch').value, '');
+    loadErrorAnalysis();
+  });
+  document.getElementById('eaDept').addEventListener('change', function () {
+    document.getElementById('eaEmployee').innerHTML = buildEmployeeOptionsHtml(document.getElementById('eaBranch').value, document.getElementById('eaDept').value);
+    loadErrorAnalysis();
+  });
+  ['eaSop','eaEmployee'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', loadErrorAnalysis);
+  });
+  document.getElementById('eaPrintBtn').addEventListener('click', printErrorAnalysis);
+  document.getElementById('staffReportBtn').addEventListener('click', openStaffReport);
+  loadErrorAnalysis();
+}
+
+/** Подразделения выбранного филиала (без дублей); при «Все филиалы» — с префиксом названия филиала. */
+function buildDeptOptionsHtml(branchId) {
+  var d = state.dashboard;
+  var branchNameById = {};
+  d.branches.forEach(function (b) { branchNameById[String(b.id)] = b.name; });
+
+  var seen = {};
+  var list = d.departments.filter(function (dep) {
+    if (branchId && String(dep.branchId) !== String(branchId)) return false;
+    var key = String(dep.id);
+    if (seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+
+  var options = list.map(function (dep) {
+    var label = branchId ? dep.name : (branchNameById[String(dep.branchId)] || '—') + ' — ' + dep.name;
+    return '<option value="' + esc(dep.id) + '">' + esc(label) + '</option>';
+  }).join('');
+  return '<option value="">Все подразделения</option>' + options;
+}
+
+/** Сотрудники (медсёстры) выбранного филиала/подразделения, для фильтра «Сотрудник» в Анализе ошибок. */
+function buildEmployeeOptionsHtml(branchId, deptId) {
+  var d = state.dashboard;
+  var list = d.matrix.filter(function (r) {
+    if (branchId && String(r.branchId) !== String(branchId)) return false;
+    if (deptId && String(r.departmentId) !== String(deptId)) return false;
+    return true;
+  }).slice().sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ru'); });
+  return '<option value="">Все сотрудники</option>' + list.map(function (r) {
+    return '<option value="' + esc(r.employeeId) + '">' + esc(r.name) + '</option>';
+  }).join('');
+}
+
+function loadErrorAnalysis() {
+  var branchId = document.getElementById('eaBranch').value;
+  var deptId = document.getElementById('eaDept').value;
+  var sopId = document.getElementById('eaSop').value;
+  var employeeId = document.getElementById('eaEmployee').value;
+  var summaryBox = document.getElementById('eaSummary');
+  var listBox = document.getElementById('eaSopList');
+  summaryBox.innerHTML = '';
+  listBox.innerHTML = '<p class="hint">Загрузка…</p>';
+
+  api('errorAnalysis', {
+    branchId: branchId || undefined, departmentId: deptId || undefined,
+    sopId: sopId || undefined, employeeId: employeeId || undefined
+  }).then(function (data) {
+    state.errorAnalysis = data;
+    renderErrorAnalysisBody();
+  }).catch(function (e) {
+    summaryBox.innerHTML = '';
+    listBox.innerHTML = '<div class="error">' + esc(e.message) + '</div>';
+  });
+}
+
+function renderErrorAnalysisBody() {
+  var data = state.errorAnalysis;
+  var summaryBox = document.getElementById('eaSummary');
+  var listBox = document.getElementById('eaSopList');
+
+  summaryBox.innerHTML =
+    '<div class="summary-item"><div>Сотрудников прошли тесты</div><div class="n">' + data.summary.employeesPassed + '</div></div>' +
+    '<div class="summary-item"><div>Попыток</div><div class="n">' + data.summary.attemptsCount + '</div></div>' +
+    '<div class="summary-item"><div>Средний балл</div><div class="n">' + data.summary.avgScore + '%</div></div>';
+
+  if (!data.sops.length) {
+    listBox.innerHTML = '<p class="hint">Ошибок по выбранным фильтрам не найдено.</p>';
+    return;
+  }
+
+  if (data.employeeId) {
+    listBox.innerHTML = data.sops.map(function (sop) {
+      var attemptsHtml = sop.attempts.map(function (a) {
+        return '<div class="ea-q-meta">' + fmtDate(a.date) + ' · балл ' + esc(a.score) + '% · ' + statusLabel(a.status) +
+          (a.unanswered ? ' · без ответа: ' + a.unanswered + ' из ' + a.total : '') + '</div>';
+      }).join('');
+      var topicsHtml = sop.topics.length
+        ? sop.topics.map(function (t) {
+            return '<div class="ea-q">' +
+              '<div class="ea-q-head">' + (t.punkt ? 'Пункт СОП: ' + esc(t.punkt) : esc(t.text)) + '</div>' +
+              (t.punkt ? '<div class="ea-q-meta">' + esc(t.text) + '</div>' : '') +
+              '<div class="ea-q-stat">Ошибалась ' + t.count + ' раз из ' + sop.attemptsCount + ' попыток</div>' +
+            '</div>';
+          }).join('')
+        : '<p class="hint">Ошибок нет.</p>';
+      return '<details class="ea-sop" open>' +
+        '<summary><span>' + esc(sop.code || sop.name) + ' — ' + esc(sop.name) + '</span>' +
+          '<span class="ea-sop-meta">лучший результат: ' + esc(sop.bestScore) + '% · последняя попытка: ' + esc(sop.lastScore) + '% (' + statusLabel(sop.lastStatus) + ')</span>' +
+        '</summary>' +
+        '<div class="ea-questions">' +
+          '<div class="hint" style="margin-bottom:6px">Попытки (' + sop.attemptsCount + '):</div>' +
+          attemptsHtml +
+          '<div class="hint" style="margin:12px 0 6px">Проблемные темы (по убыванию частоты):</div>' +
+          topicsHtml +
+        '</div>' +
+      '</details>';
+    }).join('');
+    return;
+  }
+
+  listBox.innerHTML = data.sops.map(function (sop) {
+    var topicsHtml = (sop.topics || []).map(function (t) {
+      return '<div class="ea-q">' +
+        '<div class="ea-q-head">' + (t.punkt ? 'Пункт СОП: ' + esc(t.punkt) : esc(t.text)) + '</div>' +
+        '<div class="ea-q-stat">Ошибок в ' + t.wrong + ' из ' + t.total + ' ответов (' + t.wrongPercent + '%)</div>' +
+      '</div>';
+    }).join('');
+    var qHtml = sop.questions.map(function (q) {
+      return '<div class="ea-q">' +
+        '<div class="ea-q-head">' + (q.number != null ? q.number + '. ' : '') + esc(q.text) + '</div>' +
+        (q.punkt ? '<div class="ea-q-meta">Пункт СОП: ' + esc(q.punkt) + '</div>' : '') +
+        '<div class="ea-q-stat">Ошибок в ' + q.wrong + ' из ' + q.total + ' попыток, где встречался вопрос (' + q.wrongPercent + '%)</div>' +
+      '</div>';
+    }).join('');
+    return '<details class="ea-sop">' +
+      '<summary><span>' + esc(sop.code || sop.name) + ' — ' + esc(sop.name) + '</span>' +
+        '<span class="ea-sop-meta">прошли: ' + sop.passedCount + ' · ошиблись: ' + sop.erredCount + ' из ' + sop.totalPeople + ' · ' + sop.errorPercent + '% ошибок</span>' +
+      '</summary>' +
+      '<div class="ea-questions">' +
+        '<div class="hint" style="margin-bottom:6px">Проблемные темы (разобрать с коллективом):</div>' +
+        (topicsHtml || '<p class="hint">—</p>') +
+        '<div class="hint" style="margin:12px 0 6px">Все вопросы с ошибками:</div>' +
+        (qHtml || '<p class="hint">Нет вопросов с ошибками.</p>') +
+      '</div>' +
+    '</details>';
+  }).join('');
+}
+
+function updateEaPrintHeader() {
+  var branchSel = document.getElementById('eaBranch');
+  var deptSel = document.getElementById('eaDept');
+  var branchText = branchSel.selectedOptions[0] ? branchSel.selectedOptions[0].textContent : 'Все филиалы';
+  var deptText = deptSel.selectedOptions[0] ? deptSel.selectedOptions[0].textContent : 'Все подразделения';
+  var dateText = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  document.getElementById('eaPrintHeader').innerHTML =
+    '<h1 style="margin:0 0 4px">Анализ ошибок</h1>' +
+    '<p style="margin:0">Филиал: ' + esc(branchText) + ' · Подразделение: ' + esc(deptText) + '</p>' +
+    '<p style="margin:0">Дата формирования: ' + esc(dateText) + '</p>';
+}
+
+function printErrorAnalysis() {
+  document.querySelectorAll('#eaSopList details').forEach(function (det) { det.open = true; });
+  updateEaPrintHeader();
+  document.body.classList.add('printing-ea');
+  window.print();
+}
+
+window.addEventListener('afterprint', function () {
+  document.body.classList.remove('printing-ea');
+  document.body.classList.remove('printing-staff');
+});
+
+/**
+ * Аналитическая справка по каждому сотруднику сразу (с учётом фильтров «Филиал» /
+ * «Подразделение» из блока «Анализ ошибок»): по каждому СОПу — статус, балл, число
+ * попыток и темы (пункты СОП) для повторного изучения, с разрывом страницы между
+ * сотрудниками — чтобы распечатать и передать руководителю сестринской службы.
+ */
+function openStaffReport() {
+  var branchId = document.getElementById('eaBranch').value;
+  var deptId = document.getElementById('eaDept').value;
+  var employeeId = document.getElementById('eaEmployee').value;
+  var btn = document.getElementById('staffReportBtn');
+  btn.disabled = true; btn.textContent = 'Формирование…';
+  api('staffReport', { branchId: branchId || undefined, departmentId: deptId || undefined, employeeId: employeeId || undefined })
+    .then(function (data) {
+      btn.disabled = false; btn.textContent = 'Справки по сотрудникам (печать)';
+      if (!data.report.length) { alert('Нет сотрудников по выбранным фильтрам.'); return; }
+      renderStaffReportPrint(data);
+      document.body.classList.add('printing-staff');
+      window.print();
+    })
+    .catch(function (e) {
+      btn.disabled = false; btn.textContent = 'Справки по сотрудникам (печать)';
+      alert(e.message);
+    });
+}
+
+function renderStaffReportPrint(data) {
+  var container = document.getElementById('staffReportPrint');
+  var dateText = fmtDate(data.generatedAt);
+
+  container.innerHTML = data.report.map(function (emp) {
+    var sopsWithData = emp.sops.filter(function (s) { return s.state !== 'не_открыт'; });
+
+    var sopsHtml = sopsWithData.length
+      ? sopsWithData.map(function (s) {
+          var scoreText = s.lastScore != null
+            ? ' · балл: ' + esc(s.lastScore) + '%' + (s.bestScore != null && s.bestScore !== s.lastScore ? ' (лучший: ' + esc(s.bestScore) + '%)' : '')
+            : '';
+          var topicsHtml = s.topics.length
+            ? '<div class="qbreak-ans">Темы для повторного изучения: ' +
+                s.topics.map(function (t) { return t.punkt ? 'пункт ' + esc(t.punkt) : esc(t.text); }).join('; ') +
+              '</div>'
+            : (s.state === 'сдан' ? '<div class="qbreak-ans">Ошибок не было.</div>' : '');
+          return '<div class="qbreak-row ' + (s.topics.length ? 'bad' : 'ok') + '">' +
+            '<div class="qbreak-text">' + esc(s.code || s.name) + ' — ' + esc(s.name) + '</div>' +
+            '<div class="qbreak-ans">Статус: ' + statusLabel(s.state) + scoreText + (s.attemptsCount ? ' · попыток: ' + s.attemptsCount : '') + '</div>' +
+            topicsHtml +
+          '</div>';
+        }).join('')
+      : '<p class="hint">Тестирование ещё не начато.</p>';
+
+    var groups = sopsWithData.filter(function (s) { return s.topics.length; });
+    var recommendationHtml = groups.length
+      ? '<div class="qbreak-mark">Рекомендация: повторно изучить — ' +
+          groups.map(function (s) {
+            return esc(s.code || s.name) + ' (' + s.topics.map(function (t) { return t.punkt ? 'п.' + esc(t.punkt) : esc(t.text); }).join(', ') + ')';
+          }).join('; ') +
+        '</div>'
+      : '<div class="qbreak-mark">Рекомендация: замечаний нет.</div>';
+
+    return '<div class="staff-report-page">' +
+      '<div class="print-header">' +
+        '<h1 style="margin:0 0 4px">Аналитическая справка по результатам тестирования</h1>' +
+        '<p style="margin:0">Сотрудник: ' + esc(emp.name) + '</p>' +
+        '<p style="margin:0">' + esc(emp.branchName) + (emp.departmentName ? ' — ' + esc(emp.departmentName) : '') + '</p>' +
+        '<p style="margin:0">Дата формирования: ' + esc(dateText) + '</p>' +
+      '</div>' +
+      '<div class="attempt-block">' + sopsHtml + '</div>' +
+      recommendationHtml +
+    '</div>';
+  }).join('');
+}
+
+function renderMatrixTable() {
+  var d = state.dashboard;
+  var branchId = document.getElementById('fBranch').value;
+  var deptId = document.getElementById('fDept').value;
+  var sopId = document.getElementById('fSop').value;
+  var statusFilter = document.getElementById('fStatus').value;
+
+  var sops = sopId ? d.sops.filter(function (s) { return String(s.id) === sopId; }) : d.sops;
+
+  var rows = d.matrix.filter(function (row) {
+    if (branchId && String(row.branchId) !== branchId) return false;
+    if (deptId && String(row.departmentId) !== deptId) return false;
+    if (statusFilter) {
+      return row.cells.some(function (c) { return c.state === statusFilter && (!sopId || String(c.sopId) === sopId); });
+    }
+    return true;
+  });
+
+  var thead = '<tr><th>ФИО</th>' + sops.map(function (s) { return '<th title="' + esc(s.name) + '">' + esc(s.code || s.name) + '</th>'; }).join('') + '</tr>';
+  var tbody = rows.map(function (row) {
+    var cells = sops.map(function (s) {
+      var c = row.cells.filter(function (c) { return String(c.sopId) === String(s.id); })[0];
+      if (!c) return '<td>—</td>';
+      var label = statusLabel(c.state) + (c.score != null ? ' (' + c.score + '%)' : '');
+      return '<td class="cell-clickable" data-emp="' + esc(row.employeeId) + '" data-sop="' + esc(s.id) + '" title="Открыть разбор попыток">' +
+        '<span class="cell-state ' + c.state + '">' + esc(label) + '</span></td>';
+    }).join('');
+    return '<tr>' +
+      '<td class="name-cell" data-emp="' + esc(row.employeeId) + '">' + esc(row.name) + '</td>' +
+      cells +
+    '</tr>';
+  }).join('');
+
+  var table = document.getElementById('matrixTable');
+  table.innerHTML = thead + tbody || '<tr><td>Нет данных</td></tr>';
+
+  table.querySelectorAll('.name-cell').forEach(function (td) {
+    td.addEventListener('click', function () { toggleEmployeeDetail(td.getAttribute('data-emp'), sops); });
+  });
+  table.querySelectorAll('.cell-clickable').forEach(function (td) {
+    td.addEventListener('click', function () {
+      var empId = td.getAttribute('data-emp');
+      var sopId2 = td.getAttribute('data-sop');
+      var row = d.matrix.filter(function (r) { return String(r.employeeId) === String(empId); })[0];
+      var sop = sops.filter(function (s) { return String(s.id) === String(sopId2); })[0];
+      if (row && sop) openEmployeeSopModal(empId, row.name, sopId2, sop.name);
+    });
+  });
+}
+
+var expandedEmployeeId = null;
+
+function toggleEmployeeDetail(employeeId, sops) {
+  var existing = document.querySelector('.emp-detail');
+  if (existing) existing.remove();
+  if (expandedEmployeeId === employeeId) { expandedEmployeeId = null; return; }
+  expandedEmployeeId = employeeId;
+
+  var row = state.dashboard.matrix.filter(function (r) { return String(r.employeeId) === String(employeeId); })[0];
+  if (!row) return;
+
+  var lines = sops.map(function (s) {
+    var c = row.cells.filter(function (c) { return String(c.sopId) === String(s.id); })[0];
+    if (!c) return '';
+    return '<div class="emp-detail-row">' +
+      '<span>' + esc(s.name) + ': ' + statusLabel(c.state) + (c.score != null ? ' (' + c.score + '%)' : '') + '</span>' +
+      '<button class="btn secondary" data-reset-attempts data-emp="' + esc(employeeId) + '" data-sop="' + esc(s.id) + '">Сбросить попытки</button>' +
+    '</div>';
+  }).join('');
+
+  var detailRow = document.createElement('tr');
+  detailRow.className = 'emp-detail';
+  var td = document.createElement('td');
+  td.colSpan = sops.length + 1;
+  td.innerHTML = lines +
+    '<div class="emp-detail-row"><span>Сброс PIN для ' + esc(row.name) + '</span>' +
+    '<button class="btn secondary" data-reset-pin data-emp="' + esc(employeeId) + '">Сбросить PIN</button></div>' +
+    '<div class="hint" style="padding:10px">Разбор попыток по конкретному СОП — клик на ячейку этого сотрудника в матрице выше.</div>';
+  detailRow.appendChild(td);
+
+  var clickedCell = document.querySelector('.name-cell[data-emp="' + employeeId + '"]');
+  clickedCell.parentNode.insertAdjacentElement('afterend', detailRow);
+
+  detailRow.querySelectorAll('[data-reset-attempts]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!confirm('Сбросить попытки по этому СОП для сотрудника?')) return;
+      api('resetAttempts', { employeeId: btn.getAttribute('data-emp'), sopId: btn.getAttribute('data-sop') })
+        .then(function () { alert('Попытки сброшены'); renderAdminDashboard(); })
+        .catch(function (e) { alert(e.message); });
+    });
+  });
+  detailRow.querySelectorAll('[data-reset-pin]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pin = prompt('Введите новый PIN (4-6 цифр):');
+      if (!pin) return;
+      if (!/^\d{4,6}$/.test(pin)) { alert('PIN должен содержать 4-6 цифр'); return; }
+      api('resetPin', { employeeId: btn.getAttribute('data-emp'), newPin: pin })
+        .then(function () { alert('PIN обновлён'); })
+        .catch(function (e) { alert(e.message); });
+    });
+  });
+
+}
+
+/**
+ * Окно (модалка) по клику на ячейку «Сотрудник × СОП»: все попытки сотрудника
+ * по этому СОП (дата, балл, статус) и для каждой — только вопросы с ошибкой
+ * (текст, ответ сотрудника, правильный ответ, пункт СОП).
+ */
+function openEmployeeSopModal(employeeId, employeeName, sopId, sopName) {
+  openModal('<h2>' + esc(employeeName) + '</h2><p class="hint">' + esc(sopName) + '</p><p class="hint">Загрузка…</p>');
+  api('employeeAttempts', { employeeId: employeeId, sopId: sopId }).then(function (data) {
+    renderEmployeeSopModal(employeeName, sopName, data.attempts);
+  }).catch(function (e) {
+    openModal('<h2>' + esc(employeeName) + '</h2><div class="error">' + esc(e.message) + '</div>' +
+      '<button class="btn secondary block" id="modalCloseBtn">Закрыть</button>');
+    document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  });
+}
+
+function renderEmployeeSopModal(employeeName, sopName, attempts) {
+  var body = '<h2>' + esc(employeeName) + '</h2><p class="hint">' + esc(sopName) + '</p>';
+  if (!attempts.length) {
+    body += '<p class="hint">Нет завершённых попыток.</p>';
+  } else {
+    body += attempts.map(function (a) {
+      var wrong = a.details.filter(function (d) { return !d.isCorrect; });
+      var wrongHtml = wrong.length
+        ? wrong.map(function (d, i) {
+            return '<div class="qbreak-row bad">' +
+              '<div class="qbreak-text">' + (i + 1) + '. ' + esc(d.text) + '</div>' +
+              '<div class="qbreak-ans">Ответ сотрудника: ' + esc(d.selectedTexts.join('; ') || '—') + '</div>' +
+              '<div class="qbreak-ans">Правильный ответ: ' + esc(d.correctTexts.join('; ')) + '</div>' +
+              (d.punkt ? '<div class="qbreak-ans">Пункт СОП: ' + esc(d.punkt) + '</div>' : '') +
+            '</div>';
+          }).join('')
+        : '<p class="hint">Все ответы верные.</p>';
+      return '<div class="attempt-block">' +
+        '<div class="attempt-head"><b>' + fmtDate(a.start) + '</b> · Балл: <b>' + esc(a.score) + '%</b> · ' + esc(a.status) +
+          ' · переключений вкладки: ' + esc(a.tabSwitches || 0) +
+        '</div>' +
+        wrongHtml +
+      '</div>';
+    }).join('');
+  }
+  body += '<button class="btn secondary block" id="modalCloseBtn">Закрыть</button>';
+  openModal(body);
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+}
+
+// ---------------------------------------------------------------------------
+// Старт
+// ---------------------------------------------------------------------------
+route();
+</script>
+</body>
+</html>

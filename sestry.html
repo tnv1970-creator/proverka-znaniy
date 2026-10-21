@@ -521,6 +521,7 @@ function renderSopDetail(sop) {
       : '<span class="hint">Попытки исчерпаны</span>';
   }
 
+  var extraLinks = parseExtraLinks_(sop.presentationUrl);
   var body =
     '<div class="card">' +
       '<h1>' + esc(sop.name) + '</h1>' +
@@ -529,7 +530,7 @@ function renderSopDetail(sop) {
       '<div class="badge ' + sop.status + '">' + statusLabel(sop.status) + '</div>' +
       '<div class="btn-row">' +
         '<button class="btn" id="openPdfBtn">' + (opened ? 'Открыть СОП повторно (PDF)' : 'Открыть СОП (PDF)') + '</button>' +
-        (sop.presentationUrl ? '<button class="btn secondary" id="openPresentationBtn">Презентация</button>' : '') +
+        extraLinks.map(function (l, i) { return '<button class="btn secondary extra-link-btn" data-idx="' + i + '">' + esc(l.label) + '</button>'; }).join('') +
       '</div>' +
       (opened ? '<div id="readTimerBox" style="margin-top:14px"></div>' : '') +
       '<div class="btn-row">' +
@@ -541,12 +542,30 @@ function renderSopDetail(sop) {
   app.innerHTML = body;
   document.getElementById('backHomeBtn').addEventListener('click', renderHome);
   document.getElementById('openPdfBtn').addEventListener('click', function () { openSopPdf(sop); });
-  var presBtn = document.getElementById('openPresentationBtn');
-  if (presBtn) presBtn.addEventListener('click', function () { window.open(sop.presentationUrl, '_blank'); });
+  Array.prototype.forEach.call(document.querySelectorAll('.extra-link-btn'), function (b) {
+    b.addEventListener('click', function () { window.open(extraLinks[Number(b.getAttribute('data-idx'))].url, '_blank'); });
+  });
   var toTest = document.getElementById('toTestRulesBtn');
   if (toTest) toTest.addEventListener('click', function () { renderTestRules(sop); });
 
   if (opened && !sop.acknowledged) startReadCountdown(sop);
+}
+
+// В ячейке «Ссылка_презентация» может быть несколько ссылок (через пробел, перенос строки, «,» или «;»).
+// Ссылка на Google Презентацию получает кнопку «Презентация», остальные — «Видео».
+function parseExtraLinks_(raw) {
+  var urls = String(raw || '').split(/[\s,;]+/).filter(function (u) { return /^https?:\/\//i.test(u); });
+  var pres = 0, vid = 0;
+  var items = urls.map(function (u) {
+    var isPres = /docs\.google\.com\/presentation/i.test(u) || /\.pptx?(\?|$)/i.test(u);
+    if (isPres) pres++; else vid++;
+    return { url: u, isPres: isPres };
+  });
+  var pi = 0, vi = 0;
+  return items.map(function (it) {
+    if (it.isPres) { pi++; return { url: it.url, label: pres > 1 ? 'Презентация ' + pi : 'Презентация' }; }
+    vi++; return { url: it.url, label: vid > 1 ? 'Видео ' + vi : 'Видео' };
+  });
 }
 
 function openSopPdf(sop) {
